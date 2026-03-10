@@ -2,7 +2,7 @@ import telebot
 import os
 import requests
 import time
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton,WebAppInfo
 from flask import Flask, render_template
 from threading import Thread
 from yt_dlp import YoutubeDL
@@ -110,12 +110,18 @@ def handle_link(message):
         bot.send_message(message.chat.id, "⚠️ **বোটটি ব্যবহার করতে আগে আমাদের চ্যানেলে জয়েন করুন!**\n\nজয়েন করার পর আবার লিঙ্কটি পাঠান।", reply_markup=markup)
         return
 
-    # ২. জয়েন থাকলে অ্যাড পেজের লিঙ্ক দেখাবে
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎬 Watch Ad to Unlock (SDK)", url=RENDER_URL))
-    markup.add(InlineKeyboardButton("🔓 Unlock Now", callback_data=f"unl_{int(time.time())}_{message.text}"))
-    
-    bot.send_message(message.chat.id, "⚠️ **লিঙ্কটি লক করা আছে!**\n\nভিডিওটি আনলক করতে উপরের বাটনে ক্লিক করে অন্তত ১ মিনিট অ্যাডটি দেখুন।", reply_markup=markup, parse_mode="Markdown")
+ # ২. জয়েন থাকলে অ্যাড পেজের লিঙ্ক দেখাবে
+markup = InlineKeyboardMarkup()
+
+# WebAppInfo ব্যবহার করে বাটন তৈরি
+watch_btn = InlineKeyboardButton(
+    text="🎬 Watch Ad to Unlock (SDK)", 
+    web_app=WebAppInfo(url=RENDER_URL)
+)
+
+markup.add(watch_btn)
+markup.add(InlineKeyboardButton("🔓 Unlock Now", callback_data=f"unlock_{int(time.time())}_{original_url}"))
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('unl_'))
 def process_unlock(call):
