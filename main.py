@@ -3,17 +3,19 @@ import os
 import requests
 import time
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from flask import Flask
+from flask import Flask, render_template
 from threading import Thread
 from yt_dlp import YoutubeDL
+from pymongo import MongoClient
 
-# --- Uptime System (Railway Fix) ---
-app = Flask('')
+# --- Flask App (Render Ad-Gate) ---
+app = Flask(__name__)
+
 @app.route('/')
-def home(): return "Bot is Alive and Running on Railway!"
+def home():
+    return render_template('index.html')
 
 def run():
-    # Railway-তে পোর্ট অটোমেটিক সেট হয়, তাই os.getenv('PORT') ব্যবহার করা হয়েছে
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -21,27 +23,41 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# --- Configuration ---
+# --- Config From Environment Variables ---
 API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-CH_ID = os.environ.get('TELEGRAM_CHANNEL_ID')
-MONETAG = os.environ.get('MONETAG_LINK')
-ADMIN_ID = 6311806060 
+MONGO_URI = os.environ.get('MONGO_URI') 
+ADMIN_ID = int(os.environ.get('ADMIN_ID', 6311806060))
+CH_ID = "@mediago9"  # সরাসরি আপনার চ্যানেল ইউজারনেম বসিয়ে দেওয়া হয়েছে
+RENDER_URL = os.environ.get('RENDER_URL') 
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# --- ইউজার ট্র্যাকিং (Railway-তে ফাইল রাইটিং পারমিশন ফিক্স) ---
+# --- MongoDB Setup ---
+try:
+    client = MongoClient(MONGO_URI)
+    db = client['bot_database']
+    users_col = db['users']
+except:
+    print("MongoDB Connection Error!")
+
 def log_user(user_id):
     try:
-        if not os.path.exists("users.txt"):
-            with open("users.txt", "w") as f: f.write("")
-        with open("users.txt", "r") as f:
-            users = f.read().splitlines()
-        if str(user_id) not in users:
-            with open("users.txt", "a") as f: f.write(f"{user_id}\n")
-    except Exception as e:
-        print(f"Logging error: {e}")
+        if not users_col.find_one({"user_id": user_id}):
+            users_col.insert_one({"user_id": user_id, "join_date": time.ctime()})
+    except:
+        pass
 
-# --- টিকটক ডাউনলোডার (Dual API) ---
+# --- Force Subscribe Check ---
+def is_subscribed(user_id):
+    try:
+        # বোট চেক করবে ইউজার মেম্বার, অ্যাডমিন নাকি ক্রিয়েটর
+        status = bot.get_chat_member(CH_ID, user_id).status
+        return status in ['member', 'administrator', 'creator']
+    except Exception as e:
+        # যদি ইউজার জয়েন না থাকে বা বোট অ্যাডমিন না হয় তবে False দিবে
+        return False
+
+# --- TikTok Downloader (Dual API) ---
 def get_tiktok_video(url):
     try:
         res = requests.get(f"https://api.tiklydown.eu.org/api/download?url={url}", timeout=10).json()
@@ -52,10 +68,18 @@ def get_tiktok_video(url):
             return res.get('data', {}).get('play')
         except: return None
 
+# --- Commands ---
+
 @bot.message_handler(commands=['start'])
 def welcome(message):
     log_user(message.chat.id)
-    bot.send_message(message.chat.id, "👋 **স্বাগতম!**\nলিঙ্ক পাঠান এবং আনলক করে ডাউনলোড করুন।")
+    bot.send_message(message.chat.id, "👋 **স্বাগতম!**\n\nযেকোনো ভিডিও লিঙ্ক পাঠান এবং আমাদের চ্যানেল জয়েন করে ডাউনলোড করুন।")
+
+@bot.message_handler(commands=['stats'])
+def get_stats(message):
+    if message.from_user.id == ADMIN_ID:
+        count = users_col.count_documents({})
+        bot.send_message(message.chat.id, f"📊 **বোট স্ট্যাটাস:**\n\n👥 মোট ইউজার: {count} জন।")
 
 @bot.message_handler(commands=['broadcast'])
 def broadcast(message):
@@ -65,26 +89,33 @@ def broadcast(message):
             bot.send_message(message.chat.id, "⚠️ ব্যবহার: `/broadcast আপনার মেসেজ`")
             return
         
-        if os.path.exists("users.txt"):
-            with open("users.txt", "r") as f:
-                users = f.read().splitlines()
-            count = 0
-            for user in users:
-                try:
-                    bot.send_message(user, msg_text)
-                    count += 1
-                except: continue
-            bot.send_message(message.chat.id, f"✅ {count} জন ইউজারের কাছে পাঠানো হয়েছে।")
-    else:
-        bot.send_message(message.chat.id, "❌ আপনি অ্যাডমিন নন।")
+        users = users_col.find()
+        count = 0
+        for user in users:
+            try:
+                bot.send_message(user['user_id'], msg_text)
+                count += 1
+            except: continue
+        bot.send_message(message.chat.id, f"✅ {count} জন ইউজারের কাছে পাঠানো হয়েছে।")
 
+# --- Link Handler (Force Join + Ad Gate) ---
 @bot.message_handler(func=lambda message: "http" in message.text)
 def handle_link(message):
     log_user(message.chat.id)
+    
+    # ১. প্রথমে চেক করবে চ্যানেলে জয়েন আছে কিনা
+    if not is_subscribed(message.chat.id):
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{CH_ID.replace('@', '')}"))
+        bot.send_message(message.chat.id, "⚠️ **বোটটি ব্যবহার করতে আগে আমাদের চ্যানেলে জয়েন করুন!**\n\nজয়েন করার পর আবার লিঙ্কটি পাঠান।", reply_markup=markup)
+        return
+
+    # ২. জয়েন থাকলে অ্যাড পেজের লিঙ্ক দেখাবে
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎬 Watch Ad to Unlock (1 Min)", url=MONETAG))
+    markup.add(InlineKeyboardButton("🎬 Watch Ad to Unlock (SDK)", url=RENDER_URL))
     markup.add(InlineKeyboardButton("🔓 Unlock Now", callback_data=f"unl_{int(time.time())}_{message.text}"))
-    bot.send_message(message.chat.id, "⚠️ **লিঙ্কটি লক করা আছে!**\nভিডিওটি আনলক করতে অন্তত ১ মিনিট অ্যাডটি দেখুন।", reply_markup=markup, parse_mode="Markdown")
+    
+    bot.send_message(message.chat.id, "⚠️ **লিঙ্কটি লক করা আছে!**\n\nভিডিওটি আনলক করতে উপরের বাটনে ক্লিক করে অন্তত ১ মিনিট অ্যাডটি দেখুন।", reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('unl_'))
 def process_unlock(call):
@@ -103,19 +134,22 @@ def process_unlock(call):
                 if video_link:
                     bot.send_video(call.message.chat.id, video_link, caption="✅ TikTok প্রস্তুত!")
                 else:
-                    bot.send_message(call.message.chat.id, "❌ টিকটক ভিডিও পাওয়া যায়নি।")
+                    bot.send_message(call.message.chat.id, "❌ ভিডিও পাওয়া যায়নি।")
             else:
+                # FB, YouTube, etc.
                 file_path = f"vid_{call.message.chat.id}.mp4"
-                # Railway ক্রেডিট বাঁচাতে quiet=True এবং মেমোরি ম্যানেজমেন্ট যোগ করা হয়েছে
-                ydl_opts = {'format': 'best', 'outtmpl': file_path, 'quiet': True, 'no_warnings': True}
+                ydl_opts = {'format': 'best', 'outtmpl': file_path, 'quiet': True}
                 with YoutubeDL(ydl_opts) as ydl:
                     ydl.download([original_url])
+                
                 with open(file_path, 'rb') as video:
-                    bot.send_video(call.message.chat.id, video, caption="✅ ভিডিও প্রস্তুত!")
+                    bot.send_video(call.message.chat.id, video, caption="✅ ভিডিও ডাউনলোড সম্পন্ন!")
+                
                 if os.path.exists(file_path): os.remove(file_path)
+            
             bot.delete_message(call.message.chat.id, status_msg.message_id)
-        except Exception as e:
-            bot.send_message(call.message.chat.id, "❌ ডাউনলোড এরর! লিঙ্কটি আবার চেক করুন।")
+        except:
+            bot.send_message(call.message.chat.id, "❌ ডাউনলোড এরর! লিঙ্ক চেক করুন।")
 
 if __name__ == "__main__":
     keep_alive()
