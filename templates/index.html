@@ -4,45 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediaGo Super App</title>
-    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='10706593' data-sdk='show_10706593'></script>
 
     <style>
         :root { --primary: #00d4ff; --bg: #09090b; --card: #18181b; }
-        body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 15px; padding-bottom: 80px; }
-        
-        /* Header */
-        .header { text-align: center; padding: 20px 0; border-bottom: 1px solid #27272a; margin-bottom: 20px; }
-        .header h1 { color: var(--primary); font-size: 24px; margin: 0; }
-        
-        /* Dashboard Grid */
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 30px; }
-        .tool-card { 
-            background: var(--card); padding: 20px 10px; border-radius: 16px; border: 1px solid #27272a;
-            text-align: center; cursor: pointer; transition: 0.3s;
-        }
-        .tool-card:active { transform: scale(0.95); background: #27272a; }
+        body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding: 15px; padding-bottom: 50px; }
+        .header { text-align: center; padding: 10px 0; border-bottom: 1px solid #27272a; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .tool-card { background: var(--card); padding: 20px 10px; border-radius: 15px; border: 1px solid #27272a; text-align: center; cursor: pointer; }
         .tool-card i { font-size: 28px; display: block; margin-bottom: 8px; }
-        .tool-card span { font-size: 13px; font-weight: 500; color: #a1a1aa; }
-
-        /* Movie/Drama Section */
-        .section-title { font-size: 18px; margin: 20px 0 10px; color: var(--primary); display: flex; justify-content: space-between; }
-        .content-scroll { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; scrollbar-width: none; }
+        .tool-card span { font-size: 13px; color: #a1a1aa; }
+        .section-title { font-size: 18px; margin: 20px 0 10px; color: var(--primary); }
+        .content-scroll { display: flex; overflow-x: auto; gap: 12px; scrollbar-width: none; }
         .content-card { min-width: 130px; background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #27272a; }
-        .content-card img { width: 100%; height: 180px; object-fit: cover; }
-        .content-card .info { padding: 8px; font-size: 12px; text-align: center; }
-        .btn-watch { background: var(--primary); color: #000; border: none; padding: 5px 10px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
-
-        /* Bottom Monetag Banner */
-        .ad-banner { position: fixed; bottom: 0; left: 0; width: 100%; background: #000; padding: 5px 0; border-top: 1px solid #27272a; text-align: center; }
+        .content-card img { width: 100%; height: 160px; object-fit: cover; }
+        .btn-watch { background: var(--primary); color: #000; border: none; padding: 8px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>MediaGo Hub</h1>
-        <p style="font-size: 12px; color: #71717a;">আপনার প্রয়োজনীয় সব সমাধান এক জায়গায়</p>
+        <h1 style="color:var(--primary); margin:0;">MediaGo Hub</h1>
+        <p style="font-size:12px; color:#71717a;">আপনার সব সমস্যার এক সমাধান</p>
     </div>
 
     <div class="grid">
@@ -61,49 +45,47 @@
         {% if contents %}
             {% for item in contents %}
             <div class="content-card">
-                <img src="{{ item.image }}" alt="Poster">
-                <div class="info">
-                    <div style="margin-bottom: 5px; height: 32px; overflow: hidden;">{{ item.name }}</div>
+                <img src="{{ item.image }}">
+                <div style="padding:8px; text-align:center;">
+                    <div style="font-size:11px; height:30px;">{{ item.name }}</div>
                     <button class="btn-watch" onclick="watchContent('{{ item.link }}')">Download</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <p style="font-size: 12px; color: #555;">কোনো পোস্ট পাওয়া যায়নি।</p>
+            <p style="font-size:12px;">কোনো পোস্ট নেই। বোট থেকে /post করুন।</p>
         {% endif %}
     </div>
-
-    <div class="ad-banner">
-        <span style="font-size: 10px; color: #555;">ADVERTISEMENT</span>
-        </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        tg.ready();
 
-        // টুলস ওপেন করার সময় অ্যাড দেখানো
         function openTool(name) {
             if (typeof show_10706593 === 'function') {
-                show_10706593().then(() => {
-                    tg.showAlert(name + " ফিচারটি বর্তমানে মেইনটেন্যান্স এ আছে। শীঘ্রই চালু হবে!");
-                });
-            } else {
-                tg.showConfirm(name + " ওপেন করতে চান?");
-            }
+                show_10706593().then(() => { handleAction(name); }).catch(() => { handleAction(name); });
+            } else { handleAction(name); }
         }
 
-        // মুভি ডাউনলোড বা দেখার আগে অ্যাড দেখানো
+        function handleAction(name) {
+            if(name === 'ডাউনলোডার') { 
+                tg.showAlert("লিঙ্ক পাঠিয়ে ভিডিও ডাউনলোড করতে বোট-এ ফিরে যান।"); 
+                tg.close(); 
+            }
+            else if(name === 'পিডিএফ') window.location.href = "https://www.ilovepdf.com/";
+            else if(name === 'এআই') window.location.href = "https://perchance.org/ai-text-to-image-generator";
+            else if(name === 'বিজি') window.location.href = "https://www.remove.bg/upload";
+            else if(name === 'এডিটর') window.location.href = "https://www.photopea.com/";
+            else if(name === 'গেম') window.location.href = "https://tamerlan.xyz/games/";
+            else tg.showAlert(name + " শীঘ্রই আসছে!");
+        }
+
         function watchContent(link) {
-            tg.showConfirm("ভিডিওটি আনলক করতে একটি অ্যাড লোড হবে। আপনি কি নিশ্চিত?", (ok) => {
-                if(ok) {
-                    show_10706593().then(() => {
-                        window.location.href = link;
-                    });
-                }
-            });
+            if (typeof show_10706593 === 'function') {
+                show_10706593().then(() => { window.location.href = link; }).catch(() => { window.location.href = link; });
+            } else { window.location.href = link; }
         }
     </script>
 </body>
-    </html>
-    
+            </html>
+                                                                                      
