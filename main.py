@@ -3,16 +3,28 @@ import time
 import telebot
 from telebot import types
 from pymongo import MongoClient
-from flask import Flask
+from flask import Flask, render_template  # এখানে render_template যোগ করা হয়েছে
 from threading import Thread
 
-# --- রেন্ডার সার্ভার ফিক্স (এটি আপনার ফিচারে কোনো পরিবর্তন করবে না) ---
-app = Flask('')
+# --- মিনি অ্যাপ সাপোর্ট (এটি আপনার ফিচারে কোনো পরিবর্তন করবে না) ---
+app = Flask(__name__)
+
+# ডাটাবেস কানেকশন
+client = MongoClient(os.getenv("MONGO_URI"))
+db = client["super_bot_db"]
+users_col = db["users"]
+content_col = db["contents"]
+
 @app.route('/')
-def home(): return "Bot is live!"
+def home():
+    # এই অংশটি আপনার index.html ফাইলকে মিনি অ্যাপে দেখাবে
+    all_content = list(content_col.find().sort("_id", -1))
+    return render_template('index.html', contents=all_content)
+
 def run():
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
+
 def keep_alive():
     t = Thread(target=run)
     t.start()
@@ -22,11 +34,6 @@ API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 bot = telebot.TeleBot(API_TOKEN, parse_mode="HTML")
-
-client = MongoClient(os.getenv("MONGO_URI"))
-db = client["super_bot_db"]
-users_col = db["users"]
-content_col = db["contents"]
 
 # ---------------- HELPER ----------------
 def is_admin(user_id):
@@ -42,6 +49,8 @@ def start(message):
     register_user(message.chat.id)
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # এখানে আমি আপনার 'ওপেন সুপার অ্যাপ' বাটনটি যোগ করে দিচ্ছি যাতে মিনি অ্যাপ ওপেন হয়
+    markup.row(types.KeyboardButton("🚀 ওপেন সুপার অ্যাপ", web_app=types.WebAppInfo(url=os.getenv("RENDER_URL"))))
     markup.row("🎬 Movies", "📺 Dramas")
     markup.row("🎭 Series", "🔍 Search")
 
@@ -65,11 +74,7 @@ def send_content(chat_id, contents, page=0):
             types.InlineKeyboardButton("⬇ Download", url=item['link'])
         )
 
-        caption = f"""
-🎬 <b>{item['name']}</b>
-📂 {item['category']}
-⭐ Premium Content
-        """
+        caption = f"🎬 <b>{item['name']}</b>\n📂 {item['category']}\n⭐ Premium Content"
         bot.send_photo(chat_id, item['image'], caption=caption, reply_markup=markup)
 
     nav = types.InlineKeyboardMarkup()
@@ -82,19 +87,12 @@ def send_content(chat_id, contents, page=0):
 # ---------------- CATEGORY HANDLER (আপনার অরিজিনাল) ----------------
 @bot.message_handler(func=lambda m: m.text in ["🎬 Movies", "📺 Dramas", "🎭 Series"])
 def category(message):
-    category_map = {
-        "🎬 Movies": "movie",
-        "📺 Dramas": "drama",
-        "🎭 Series": "series"
-    }
-
+    category_map = {"🎬 Movies": "movie", "📺 Dramas": "drama", "🎭 Series": "series"}
     cat = category_map[message.text]
     contents = list(content_col.find({"category": cat}).sort("_id", -1))
-
     if not contents:
         bot.send_message(message.chat.id, "❌ No content found")
         return
-
     send_content(message.chat.id, contents, page=0)
 
 # ---------------- PAGINATION (আপনার অরিজিনাল) ----------------
@@ -112,36 +110,22 @@ def ask_search(message):
 
 def do_search(message):
     query = message.text
-    results = list(content_col.find({
-        "name": {"$regex": query, "$options": "i"}
-    }))
-
+    results = list(content_col.find({"name": {"$regex": query, "$options": "i"}}))
     if not results:
         bot.send_message(message.chat.id, "❌ Not found")
         return
-
     send_content(message.chat.id, results, page=0)
 
 # ---------------- POST (আপনার অরিজিনাল) ----------------
 @bot.message_handler(commands=['post'])
 def post(message):
-    if not is_admin(message.from_user.id):
-        return
-
+    if not is_admin(message.from_user.id): return
     try:
         data = message.text.replace("/post", "").split("|")
-        name = data[0].strip()
-        category = data[1].strip().lower()
-        image = data[2].strip()
-        link = data[3].strip()
-
-        content_col.insert_one({
-            "name": name, "category": category, "image": image, "link": link, "date": time.ctime()
-        })
+        name, cat, image, link = [d.strip() for d in data]
+        content_col.insert_one({"name": name, "category": cat.lower(), "image": image, "link": link, "date": time.ctime()})
         bot.send_message(ADMIN_ID, f"✅ Added: {name}")
-
-        users = users_col.find()
-        for user in users:
+        for user in users_col.find():
             try: bot.send_message(user["user_id"], f"🔥 New Added: {name}")
             except: pass
     except:
@@ -149,7 +133,6 @@ def post(message):
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    keep_alive() # রেন্ডারের জন্য পোর্ট ওপেন করবে
+    keep_alive()
     print("🚀 Premium Bot Running...")
     bot.infinity_polling()
-    
