@@ -3,67 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaGo - Link Unlocking</title>
+    <title>MediaGo Super App</title>
     
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='10706593' data-sdk='show_10706593'></script>
 
     <style>
-        body { 
-            background: #09090b; 
-            color: #ffffff; 
-            text-align: center; 
-            font-family: 'Inter', -apple-system, sans-serif; 
-            margin: 0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh;
-        }
-        .container { 
-            background: rgba(255, 255, 255, 0.03); 
-            padding: 40px 30px; 
-            border-radius: 24px; 
-            border: 1px solid rgba(0, 212, 255, 0.1); 
-            backdrop-filter: blur(10px);
-            max-width: 320px;
-            width: 90%;
-        }
-        .icon { font-size: 50px; margin-bottom: 20px; color: #00d4ff; }
-        h2 { font-size: 22px; margin-bottom: 10px; font-weight: 600; color: #00d4ff; }
-        p { font-size: 14px; line-height: 1.6; color: #a1a1aa; margin-bottom: 30px; }
+        :root { --primary: #00d4ff; --bg: #09090b; --card: #18181b; }
+        body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 15px; padding-bottom: 80px; }
         
-        /* সুন্দর স্টাইলিশ বাটন */
-        .unlock-btn { 
-            background: linear-gradient(135deg, #00d4ff 0%, #008fb3 100%);
-            color: #000; 
-            padding: 16px 32px; 
-            font-size: 16px; 
-            font-weight: 700; 
-            border: none; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.2);
+        /* Header */
+        .header { text-align: center; padding: 20px 0; border-bottom: 1px solid #27272a; margin-bottom: 20px; }
+        .header h1 { color: var(--primary); font-size: 24px; margin: 0; }
+        
+        /* Dashboard Grid */
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 30px; }
+        .tool-card { 
+            background: var(--card); padding: 20px 10px; border-radius: 16px; border: 1px solid #27272a;
+            text-align: center; cursor: pointer; transition: 0.3s;
         }
-        .unlock-btn:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 15px 30px rgba(0, 212, 255, 0.4);
-            filter: brightness(1.1);
-        }
+        .tool-card:active { transform: scale(0.95); background: #27272a; }
+        .tool-card i { font-size: 28px; display: block; margin-bottom: 8px; }
+        .tool-card span { font-size: 13px; font-weight: 500; color: #a1a1aa; }
+
+        /* Movie/Drama Section */
+        .section-title { font-size: 18px; margin: 20px 0 10px; color: var(--primary); display: flex; justify-content: space-between; }
+        .content-scroll { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; scrollbar-width: none; }
+        .content-card { min-width: 130px; background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #27272a; }
+        .content-card img { width: 100%; height: 180px; object-fit: cover; }
+        .content-card .info { padding: 8px; font-size: 12px; text-align: center; }
+        .btn-watch { background: var(--primary); color: #000; border: none; padding: 5px 10px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
+
+        /* Bottom Monetag Banner */
+        .ad-banner { position: fixed; bottom: 0; left: 0; width: 100%; background: #000; padding: 5px 0; border-top: 1px solid #27272a; text-align: center; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">🔒</div>
-        <h2>Link is Locked!</h2>
-        <p>ভিডিওটি আনলক করতে নিচের বাটনে ক্লিক করে অন্তত ১টি অ্যাড দেখুন।</p>
-        
-        <a href="javascript:void(0)" class="unlock-btn" onclick="show_10706593()">🔓 CLICK TO UNLOCK</a>
-        
-        <p style="margin-top: 25px; font-size: 12px; opacity: 0.6;">অ্যাড দেখা শেষ হলে পুনরায় বোট-এ ফিরে যান।</p>
+
+    <div class="header">
+        <h1>MediaGo Hub</h1>
+        <p style="font-size: 12px; color: #71717a;">আপনার প্রয়োজনীয় সব সমাধান এক জায়গায়</p>
     </div>
+
+    <div class="grid">
+        <div class="tool-card" onclick="openTool('ডাউনলোডার')"><i>📥</i><span>ফ্রী ডাউনলোডার</span></div>
+        <div class="tool-card" onclick="openTool('পিডিএফ')"><i>📄</i><span>PDF কনভার্টার</span></div>
+        <div class="tool-card" onclick="openTool('এআই')"><i>🎨</i><span>AI ইমেজ</span></div>
+        <div class="tool-card" onclick="openTool('বিজি')"><i>🖼️</i><span>BG রিমুভার</span></div>
+        <div class="tool-card" onclick="openTool('এডিটর')"><i>📸</i><span>ফটো এডিটর</span></div>
+        <div class="tool-card" onclick="openTool('গেম')"><i>🎮</i><span>গেম জোন</span></div>
+        <div class="tool-card" onclick="openTool('কিউআর')"><i>🔍</i><span>QR স্ক্যানার</span></div>
+        <div class="tool-card" onclick="openTool('নিউজ')"><i>📰</i><span>ডেইলি নিউজ</span></div>
+    </div>
+
+    <div class="section-title">🎬 লেটেস্ট মুভি ও নাটক</div>
+    <div class="content-scroll">
+        {% if contents %}
+            {% for item in contents %}
+            <div class="content-card">
+                <img src="{{ item.image }}" alt="Poster">
+                <div class="info">
+                    <div style="margin-bottom: 5px; height: 32px; overflow: hidden;">{{ item.name }}</div>
+                    <button class="btn-watch" onclick="watchContent('{{ item.link }}')">Download</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="font-size: 12px; color: #555;">কোনো পোস্ট পাওয়া যায়নি।</p>
+        {% endif %}
+    </div>
+
+    <div class="ad-banner">
+        <span style="font-size: 10px; color: #555;">ADVERTISEMENT</span>
+        </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // টুলস ওপেন করার সময় অ্যাড দেখানো
+        function openTool(name) {
+            if (typeof show_10706593 === 'function') {
+                show_10706593().then(() => {
+                    tg.showAlert(name + " ফিচারটি বর্তমানে মেইনটেন্যান্স এ আছে। শীঘ্রই চালু হবে!");
+                });
+            } else {
+                tg.showConfirm(name + " ওপেন করতে চান?");
+            }
+        }
+
+        // মুভি ডাউনলোড বা দেখার আগে অ্যাড দেখানো
+        function watchContent(link) {
+            tg.showConfirm("ভিডিওটি আনলক করতে একটি অ্যাড লোড হবে। আপনি কি নিশ্চিত?", (ok) => {
+                if(ok) {
+                    show_10706593().then(() => {
+                        window.location.href = link;
+                    });
+                }
+            });
+        }
+    </script>
 </body>
     </html>
     
