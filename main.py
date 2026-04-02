@@ -3,8 +3,21 @@ import time
 import telebot
 from telebot import types
 from pymongo import MongoClient
+from flask import Flask
+from threading import Thread
 
-# ---------------- CONFIG ----------------
+# --- রেন্ডার সার্ভার ফিক্স (এটি আপনার ফিচারে কোনো পরিবর্তন করবে না) ---
+app = Flask('')
+@app.route('/')
+def home(): return "Bot is live!"
+def run():
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# ---------------- CONFIG (আপনার অরিজিনাল) ----------------
 API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
@@ -23,7 +36,7 @@ def register_user(user_id):
     if not users_col.find_one({"user_id": user_id}):
         users_col.insert_one({"user_id": user_id})
 
-# ---------------- START ----------------
+# ---------------- START (আপনার অরিজিনাল) ----------------
 @bot.message_handler(commands=['start'])
 def start(message):
     register_user(message.chat.id)
@@ -38,13 +51,12 @@ def start(message):
         reply_markup=markup
     )
 
-# ---------------- CATEGORY ----------------
+# ---------------- CATEGORY (আপনার অরিজিনাল) ----------------
 def send_content(chat_id, contents, page=0):
     per_page = 5
-    start = page * per_page
-    end = start + per_page
-
-    items = contents[start:end]
+    start_idx = page * per_page
+    end_idx = start_idx + per_page
+    items = contents[start_idx:end_idx]
 
     for item in items:
         markup = types.InlineKeyboardMarkup()
@@ -58,10 +70,8 @@ def send_content(chat_id, contents, page=0):
 📂 {item['category']}
 ⭐ Premium Content
         """
-
         bot.send_photo(chat_id, item['image'], caption=caption, reply_markup=markup)
 
-    # Pagination
     nav = types.InlineKeyboardMarkup()
     nav.add(
         types.InlineKeyboardButton("⬅ Prev", callback_data=f"page_{page-1}"),
@@ -69,7 +79,7 @@ def send_content(chat_id, contents, page=0):
     )
     bot.send_message(chat_id, "📄 Pages:", reply_markup=nav)
 
-# ---------------- CATEGORY HANDLER ----------------
+# ---------------- CATEGORY HANDLER (আপনার অরিজিনাল) ----------------
 @bot.message_handler(func=lambda m: m.text in ["🎬 Movies", "📺 Dramas", "🎭 Series"])
 def category(message):
     category_map = {
@@ -87,15 +97,14 @@ def category(message):
 
     send_content(message.chat.id, contents, page=0)
 
-# ---------------- PAGINATION ----------------
+# ---------------- PAGINATION (আপনার অরিজিনাল) ----------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith("page_"))
 def pagination(call):
     page = int(call.data.split("_")[1])
-
     contents = list(content_col.find().sort("_id", -1))
     send_content(call.message.chat.id, contents, page)
 
-# ---------------- SEARCH ----------------
+# ---------------- SEARCH (আপনার অরিজিনাল) ----------------
 @bot.message_handler(func=lambda m: m.text == "🔍 Search")
 def ask_search(message):
     msg = bot.send_message(message.chat.id, "🔍 Send movie name:")
@@ -103,7 +112,6 @@ def ask_search(message):
 
 def do_search(message):
     query = message.text
-
     results = list(content_col.find({
         "name": {"$regex": query, "$options": "i"}
     }))
@@ -114,7 +122,7 @@ def do_search(message):
 
     send_content(message.chat.id, results, page=0)
 
-# ---------------- POST ----------------
+# ---------------- POST (আপনার অরিজিনাল) ----------------
 @bot.message_handler(commands=['post'])
 def post(message):
     if not is_admin(message.from_user.id):
@@ -122,33 +130,26 @@ def post(message):
 
     try:
         data = message.text.replace("/post", "").split("|")
-
         name = data[0].strip()
         category = data[1].strip().lower()
         image = data[2].strip()
         link = data[3].strip()
 
         content_col.insert_one({
-            "name": name,
-            "category": category,
-            "image": image,
-            "link": link,
-            "date": time.ctime()
+            "name": name, "category": category, "image": image, "link": link, "date": time.ctime()
         })
-
         bot.send_message(ADMIN_ID, f"✅ Added: {name}")
 
-        # 🔔 Auto Notify
         users = users_col.find()
         for user in users:
-            try:
-                bot.send_message(user["user_id"], f"🔥 New Added: {name}")
-            except:
-                pass
-
+            try: bot.send_message(user["user_id"], f"🔥 New Added: {name}")
+            except: pass
     except:
-        bot.send_message(ADMIN_ID, "❌ Format:\n/post name | movie | img | link")
+        bot.send_message(ADMIN_ID, "❌ Format: /post name | category | img | link")
 
 # ---------------- RUN ----------------
-print("🚀 Premium Bot Running...")
-bot.infinity_polling()
+if __name__ == "__main__":
+    keep_alive() # রেন্ডারের জন্য পোর্ট ওপেন করবে
+    print("🚀 Premium Bot Running...")
+    bot.infinity_polling()
+    
