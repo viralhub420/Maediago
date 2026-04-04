@@ -6,15 +6,16 @@ from pymongo import MongoClient
 from flask import Flask, render_template
 from threading import Thread
 
-# --- কনফিগ ---
+# --- কনফিগুরেশন ---
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 CHANNELS = [
     {"id": "@TheDubbedStationBD", "link": "https://t.me/TheDubbedStationBD", "name": "Main Channel"},
-    {"id": "@mediastationbd", "link": "https://t.me/mediastationbd", "name": "Backup Channel"},
 ]
-POST_CHANNELS = ["@TheDubbedStationBD"] # যেসব চ্যানেলে অটো পোস্ট যাবে
+POST_CHANNELS = ["@TheDubbedStationBD"]
 
 app = Flask(__name__)
+
+# ডাটাবেস কানেকশন
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["super_bot_db"]
 users_col = db["users"]
@@ -22,8 +23,10 @@ content_col = db["contents"]
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"), parse_mode="HTML")
 
+# --- ফ্রন্টএন্ড রুট ---
 @app.route('/')
 def home():
+    # ডাটাবেস থেকে সব মুভি/নাটক নিয়ে আসা (লেটেস্টগুলো আগে দেখাবে)
     all_content = list(content_col.find().sort("_id", -1))
     return render_template('index.html', contents=all_content)
 
@@ -33,83 +36,82 @@ def keep_alive():
     t.start()
 
 # --- ফোর্স জয়েন চেক ---
-def get_not_joined(user_id):
-    not_joined = []
+def is_joined(user_id):
     for ch in CHANNELS:
         try:
             status = bot.get_chat_member(ch["id"], user_id).status
-            if status not in ['member', 'administrator', 'creator']: not_joined.append(ch)
+            if status not in ['member', 'administrator', 'creator']: return False
         except: continue
-    return not_joined
+    return True
 
-# --- স্টার্ট কমান্ড ---
+# --- কমান্ড হ্যান্ডলার ---
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
-    if not users_col.find_one({"user_id": user_id}): 
+    # ইউজার সেভ করা
+    if not users_col.find_one({"user_id": user_id}):
         users_col.insert_one({"user_id": user_id})
     
-    not_joined = get_not_joined(user_id)
-    if not_joined:
+    if not is_joined(user_id):
         markup = types.InlineKeyboardMarkup()
-        for ch in not_joined: markup.add(types.InlineKeyboardButton(f"📢 Join {ch['name']}", url=ch['link']))
-        markup.add(types.InlineKeyboardButton("🔄 চেক করুন (Check Join)", callback_data="check_status"))
-        bot.send_message(user_id, "⚠️ **এক্সেস ডিনাইড!**\nবোটের সার্ভিসগুলো ব্যবহার করতে আমাদের চ্যানেলে জয়েন করুন।", reply_markup=markup)
+        for ch in CHANNELS:
+            markup.add(types.InlineKeyboardButton(f"📢 Join {ch['name']}", url=ch['link']))
+        markup.add(types.InlineKeyboardButton("🔄 চেক করুন", callback_data="check_join"))
+        bot.send_message(user_id, "⚠️ **এক্সেস ডিনাইড!**\n\nআমাদের চ্যানেলে জয়েন না করলে বোটটি কাজ করবে না।", reply_markup=markup)
         return
-    show_menu(user_id)
+    
+    show_main_menu(user_id)
 
-def show_menu(chat_id):
+def show_main_menu(chat_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # সুপার অ্যাপ বাটন
     markup.row(types.KeyboardButton("🚀 ওপেন সুপার অ্যাপ", web_app=types.WebAppInfo(url=os.getenv("RENDER_URL"))))
-    markup.row("🎬 Movies", "📺 Dramas", "🎭 Series")
-    markup.row("🔍 Search")
-    bot.send_message(chat_id, "👋 **MediaGo Hub**-এ স্বাগতম!\nভিডিও ডাউনলোড করতে লিঙ্কটি পেস্ট করুন।", reply_markup=markup)
+    markup.row("🎬 Movies", "💰 Earning", "📊 Stats")
+    bot.send_message(chat_id, "👋 **MediaGo Hub**-এ স্বাগতম!\n\nনিচের বাটন থেকে সুপার অ্যাপ ওপেন করুন অথবা যেকোনো ভিডিও লিঙ্ক পাঠিয়ে ডাউনলোড করুন।", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data == "check_status")
-def check_status(call):
-    if not get_not_joined(call.from_user.id):
+@bot.callback_query_handler(func=lambda call: call.data == "check_join")
+def check_join_callback(call):
+    if is_joined(call.from_user.id):
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        show_menu(call.message.chat.id)
-    else: bot.answer_callback_query(call.id, "❌ আপনি এখনো জয়েন করেননি!", show_alert=True)
+        show_main_menu(call.message.chat.id)
+    else:
+        bot.answer_callback_query(call.id, "❌ আপনি এখনো জয়েন করেননি!", show_alert=True)
 
-# --- ডাউনলোডার লজিক (মিনি অ্যাপে রিডাইরেক্ট) ---
+# --- ভিডিও ডাউনলোডার রিডাইরেক্ট ---
 @bot.message_handler(func=lambda m: any(x in m.text for x in ["facebook.com", "tiktok.com", "youtube.com", "youtu.be", "instagram.com"]))
-def handle_link(message):
+def handle_downloader(message):
     mini_app_url = f"{os.getenv('RENDER_URL')}?download_url={message.text}"
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔓 Unlock & Download Video", web_app=types.WebAppInfo(url=mini_app_url)))
-    bot.send_message(message.chat.id, "📥 **ভিডিওটি প্রস্তুত!**\nনিচের বাটনে ক্লিক করে আনলক করুন।", reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("🔓 Unlock & Download", web_app=types.WebAppInfo(url=mini_app_url)))
+    bot.send_message(message.chat.id, "📥 **ভিডিও লিঙ্ক পাওয়া গেছে!**\n\nনিচের বাটনে ক্লিক করে অ্যাড দেখে আনলক করুন।", reply_markup=markup)
 
-# --- অটো পোস্ট ও ব্রডকাস্ট ---
+# --- অ্যাডমিন পোস্ট কমান্ড ---
 @bot.message_handler(commands=['post'])
-def post_content(message):
+def admin_post(message):
     if message.from_user.id != ADMIN_ID: return
     try:
-        # ফরম্যাট: /post Name | Category | Img_Link | Watch_Link
-        data = message.text.replace("/post", "").strip().split("|")
-        name, cat, img, link = [x.strip() for x in data]
+        # ফরম্যাট: /post Name | Category | Image_URL | Video_URL
+        data = [x.strip() for x in message.text.replace("/post", "").split("|")]
+        name, cat, img, link = data
+        
+        # ডাটাবেসে সেভ
         content_col.insert_one({"name": name, "category": cat.lower(), "image": img, "link": link})
         
-        # চ্যানেলে অটো পোস্ট
+        # চ্যানেলে পোস্ট
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🚀 Watch / Download Now", url=f"https://t.me/{bot.get_me().username}?start=search"))
-        post_caption = f"🎬 <b>নতুন কন্টেন্ট আপলোড!</b>\n\n📌 <b>নাম:</b> {name}\n📂 <b>ক্যাটাগরি:</b> {cat.upper()}"
+        markup.add(types.InlineKeyboardButton("🚀 Watch / Download", url=f"https://t.me/{bot.get_me().username}?start=search"))
         for ch in POST_CHANNELS:
-            try: bot.send_photo(ch, img, caption=post_caption, reply_markup=markup)
-            except: pass
+            bot.send_photo(ch, img, caption=f"🎬 <b>New Content: {name}</b>\n📂 Category: {cat.upper()}", reply_markup=markup)
             
-        # সব ইউজারকে ব্রডকাস্ট করা
-        for user in users_col.find():
-            try: bot.send_message(user["user_id"], f"🔥 <b>নতুন ভিডিও যোগ হয়েছে:</b> {name}\nবটে চেক করুন!")
-            except: pass
-        bot.send_message(ADMIN_ID, f"✅ সফলভাবে ডাটাবেস ও চ্যানেলে পোস্ট করা হয়েছে!")
-    except: bot.send_message(ADMIN_ID, "❌ ফরম্যাট: /post Name | Category | Img | Link")
+        bot.send_message(ADMIN_ID, "✅ পোস্ট সফল হয়েছে!")
+    except:
+        bot.send_message(ADMIN_ID, "❌ ভুল ফরম্যাট! সঠিক: /post Name | Category | Img | Link")
 
-# --- অ্যাক্টিভ ইউজার ক্লিনআপ ---
+# --- ইউজার স্ট্যাটাস ও ক্লিনআপ ---
 @bot.message_handler(commands=['stats'])
 def stats_cleanup(message):
     if message.from_user.id != ADMIN_ID: return
-    msg = bot.send_message(ADMIN_ID, "🔍 ইউজার ডাটাবেস স্ক্যান করা হচ্ছে এবং ইনঅ্যাক্টিভ ইউজার ডিলিট করা হচ্ছে...")
+    msg = bot.send_message(ADMIN_ID, "🔍 ইউজার ডাটাবেস চেক করা হচ্ছে...")
     total = users_col.count_documents({})
     active, deleted = 0, 0
     for user in users_col.find():
@@ -119,10 +121,8 @@ def stats_cleanup(message):
         except:
             users_col.delete_one({"user_id": user["user_id"]})
             deleted += 1
-        time.sleep(0.05)
-    bot.edit_message_text(f"📊 **স্ট্যাটাস রিপোর্ট**\n\n✅ অ্যাক্টিভ: {active}\n🗑️ ডিলিট হয়েছে: {deleted}\n📱 মোট: {total}", ADMIN_ID, msg.message_id)
+    bot.edit_message_text(f"📊 **স্ট্যাটাস রিপোর্ট**\n\n✅ অ্যাক্টিভ: {active}\n🗑️ ইনঅ্যাক্টিভ ডিলিট: {deleted}\n📱 মোট: {total}", ADMIN_ID, msg.message_id)
 
 if __name__ == "__main__":
     keep_alive()
     bot.infinity_polling()
-    
