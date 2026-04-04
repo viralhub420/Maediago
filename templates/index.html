@@ -3,70 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaGo Super App</title>
+    <title>MediaGo Hub 🚀</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='10706593' data-sdk='show_10706593'></script>
     <style>
-        :root { --primary: #00d4ff; --bg: #09090b; --card: #18181b; }
-        body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding: 15px; padding-bottom: 50px; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
-        .tool-card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #27272a; text-align: center; font-size: 13px; }
-        .cat-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 15px; scrollbar-width: none; }
-        .tab { background: #27272a; padding: 8px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; border: none; color: #fff; white-space: nowrap; }
-        .tab.active { background: var(--primary); color: #000; font-weight: bold; }
-        .content-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .card { background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #27272a; display: none; }
-        .card.show { display: block; }
-        .card img { width: 100%; height: 140px; object-fit: cover; }
-        .btn-dl { background: var(--primary); border: none; width: 100%; padding: 8px; font-weight: bold; cursor: pointer; }
+        :root { --primary: #00d4ff; --bg: #09090b; --card: #1c1c1e; --gold: #f1c40f; }
+        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; padding-bottom: 80px; }
+        
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: var(--primary); margin: 0; font-size: 24px; }
+        .header p { font-size: 11px; color: #a1a1aa; margin-top: 5px; }
+
+        /* টুলস গ্রিড */
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+        .tool-card { background: var(--card); padding: 20px 10px; border-radius: 15px; border: 1px solid #2c2c2e; text-align: center; cursor: pointer; transition: 0.3s; }
+        .tool-card:active { transform: scale(0.95); background: #2c2c2e; }
+        .tool-card i { font-size: 28px; display: block; margin-bottom: 8px; font-style: normal; }
+        .tool-card span { font-size: 13px; font-weight: 500; color: #efeff4; }
+
+        /* আর্নিং জোন বাটন */
+        .earn-btn { 
+            background: linear-gradient(135deg, #f39c12, #d35400); 
+            padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 25px; 
+            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.3); cursor: pointer;
+        }
+        .earn-btn i { font-size: 30px; display: block; }
+        .earn-btn b { font-size: 16px; display: block; margin-top: 5px; color: #fff; }
+
+        /* আর্নিং মেনু পপ-আপ */
+        #earnModal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 1000; padding: 25px; box-sizing: border-box; 
+        }
+        .modal-content { margin-top: 50px; }
+        .earn-item { 
+            background: #2c2c2e; padding: 15px; border-radius: 12px; margin-bottom: 12px; 
+            border-left: 4px solid var(--gold); text-align: left; display: flex; align-items: center; gap: 15px;
+        }
+
+        /* মুভি সেকশন */
+        .section-title { font-size: 16px; color: var(--primary); margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; }
+        .movie-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .movie-card { background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #2c2c2e; }
+        .movie-card img { width: 100%; height: 150px; object-fit: cover; }
+        .movie-info { padding: 8px; text-align: center; }
+        .movie-title { font-size: 12px; height: 32px; overflow: hidden; margin-bottom: 8px; }
+        .btn-watch { background: var(--primary); color: #000; border: none; width: 100%; padding: 7px; border-radius: 5px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <h2 style="text-align:center; color:var(--primary); margin: 0 0 15px 0;">MediaGo Hub</h2>
+    <div class="header">
+        <h1>MediaGo Hub</h1>
+        <p>আপনার প্রয়োজনীয় সব সমাধান এক জায়গায়</p>
+    </div>
 
     <div class="grid">
-        <div class="tool-card" onclick="alert('বটে লিঙ্ক দিন')">📥 Downloader</div>
-        <div class="tool-card" onclick="location.href='https://perchance.org/ai-text-to-image-generator'">🎨 AI Image</div>
+        <div class="tool-card" onclick="location.href='https://t.me/TheDubbedStationBD'"><i>📥</i><span>ফ্রী ডাউনলোডার</span></div>
+        <div class="tool-card" onclick="location.href='https://www.ilovepdf.com/'"><i>📄</i><span>PDF কনভার্টার</span></div>
+        <div class="tool-card" onclick="location.href='https://perchance.org/ai-text-to-image-generator'"><i>🎨</i><span>AI ইমেজ</span></div>
+        <div class="tool-card" onclick="location.href='https://www.remove.bg/upload'"><i>🖼️</i><span>BG রিমুভার</span></div>
+        <div class="tool-card" onclick="location.href='https://www.photopea.com/'"><i>✨</i><span>ফটো এডিটর</span></div>
+        <div class="tool-card" onclick="location.href='https://tamerlan.xyz/games/'"><i>🎮</i><span>গেম জোন</span></div>
+        <div class="tool-card" onclick="location.href='https://qrcodescan.in/'"><i>🔍</i><span>QR স্ক্যানার</span></div>
+        <div class="tool-card" onclick="location.href='https://www.bbc.com/bengali'"><i>📰</i><span>ডেইলি নিউজ</span></div>
     </div>
 
-    <div class="cat-tabs">
-        <button class="tab active" onclick="filter('all', this)">All</button>
-        <button class="tab" onclick="filter('movie', this)">Movies</button>
-        <button class="tab" onclick="filter('drama', this)">Dramas</button>
-        <button class="tab" onclick="filter('series', this)">Series</button>
+    <div class="earn-btn" onclick="showEarn()">
+        <i>💰</i>
+        <b>Earning Zone (ইনকাম করুন)</b>
     </div>
 
-    <div class="content-grid" id="list">
+    <div class="section-title">🎬 লেটেস্ট মুভি ও নাটক</div>
+    <div class="movie-grid">
         {% for item in contents %}
-        <div class="card show" data-cat="{{ item.category }}">
+        <div class="movie-card">
             <img src="{{ item.image }}">
-            <div style="padding:8px; text-align:center; font-size:12px; height: 32px; overflow: hidden;">{{ item.name }}</div>
-            <button class="btn-dl" onclick="unlock('{{ item.link }}')">Download</button>
+            <div class="movie-info">
+                <div class="movie-title">{{ item.name }}</div>
+                <button class="btn-watch" onclick="unlockContent('{{ item.link }}')">Download</button>
+            </div>
         </div>
         {% endfor %}
+    </div>
+
+    <div id="earnModal">
+        <div class="modal-content">
+            <h2 style="color:var(--gold); margin-bottom: 5px;">পয়েন্ট জমান 💸</h2>
+            <p style="font-size:12px; color:#ccc; margin-bottom:30px;">নিচের টাস্কগুলো করে ইনকাম শুরু করুন</p>
+            
+            <div class="earn-item" onclick="earnAd()">
+                <span style="font-size:24px;">📅</span>
+                <div><b>Daily Reward</b><br><small>প্রতিদিন ৫০ পয়েন্ট বোনাস</small></div>
+            </div>
+            
+            <div class="earn-item" onclick="earnAd()">
+                <span style="font-size:24px;">📺</span>
+                <div><b>Watch Ads & Earn</b><br><small>অ্যাড দেখে আনলিমিটেড ইনকাম</small></div>
+            </div>
+
+            <div class="earn-item" style="border-left-color:#ef4444;" onclick="withdraw()">
+                <span style="font-size:24px;">💸</span>
+                <div><b>Withdraw Point</b><br><small>বিকাশ বা নগদে টাকা নিন</small></div>
+            </div>
+
+            <button onclick="hideEarn()" style="margin-top:30px; background:#3a3a3c; color:#fff; border:none; padding:12px 40px; border-radius:25px;">Close</button>
+        </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        const directAdLink = "https://omg10.com/4/10651831";
+        const directLink = "https://omg10.com/4/10651831";
 
-        // ক্যাটাগরি ফিল্টার
-        function filter(c, btn) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            document.querySelectorAll('.card').forEach(i => {
-                i.classList.toggle('show', c === 'all' || i.dataset.cat === c);
+        // আর্নিং মেনু কন্ট্রোল
+        function showEarn() { document.getElementById('earnModal').style.display = 'block'; }
+        function hideEarn() { document.getElementById('earnModal').style.display = 'none'; }
+
+        // অ্যাড দেখে ইনকাম
+        function earnAd() {
+            tg.showConfirm("পয়েন্ট যোগ করতে একটি অ্যাড লোড হবে।", (ok) => {
+                if (ok) window.location.href = directLink;
             });
         }
 
-        // অ্যাড-লক ও আনলক প্রসেস
-        function unlock(link) {
-            tg.showConfirm("ভিডিওটি আনলক করতে ১০ সেকেন্ড অ্যাড দেখুন। আপনি কি প্রস্তুত?", (ok) => {
+        // উইথড্র এলার্ট
+        function withdraw() {
+            tg.showAlert("⚠️ আপনার ব্যালেন্স নূন্যতম ৫০০ পয়েন্ট হতে হবে।\n\nপয়েন্ট হয়ে গেলে স্ক্রিনশট সহ অ্যাডমিনকে মেসেজ দিন।");
+        }
+
+        // মুভি আনলক লজিক
+        function unlockContent(link) {
+            tg.showConfirm("মুভিটি ডাউনলোড করতে ১০ সেকেন্ড অপেক্ষা করুন।", (ok) => {
                 if (ok) {
-                    if (typeof show_10706593 === 'function') show_10706593().then(() => startTimer(link));
-                    else startTimer(link);
+                    if (typeof show_10706593 === 'function') {
+                        show_10706593().then(() => startTimer(link));
+                    } else { startTimer(link); }
                 }
             });
         }
@@ -79,26 +151,17 @@
                 tg.MainButton.setText(`Unlocking Video in ${s}s...`);
                 if (s <= 0) {
                     clearInterval(timer);
-                    tg.MainButton.setText("✅ Click Here to Unlock Now");
+                    tg.MainButton.setText("✅ Click to Get Movie");
                     tg.MainButton.enable();
                     tg.MainButton.onClick(() => {
-                        window.location.href = directAdLink; // প্রথমে অ্যাড লিঙ্কে পাঠাবে
-                        setTimeout(() => { window.location.href = link; }, 3000); // ৩ সেকেন্ড পর ভিডিওর লিঙ্ক
+                        window.location.href = directLink;
+                        setTimeout(() => { window.location.href = link; }, 3000);
                     });
                 }
                 s--;
             }, 1000);
         }
-
-        // ডাউনলোডার লিঙ্ক থেকে সরাসরি আনলক অপশন
-        const urlParams = new URLSearchParams(window.location.search);
-        const dUrl = urlParams.get('download_url');
-        if (dUrl) {
-            window.onload = () => {
-                const finalDownloadLink = "https://snapsave.app/search?q=" + encodeURIComponent(dUrl);
-                unlock(finalDownloadLink);
-            };
-        }
     </script>
 </body>
-</html>
+            </html>
+            
