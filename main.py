@@ -1,145 +1,127 @@
 import os
 import time
 import telebot
-import yt_dlp
 from telebot import types
 from pymongo import MongoClient
 from flask import Flask, render_template
 from threading import Thread
 
-# --- Flask & Database Setup ---
+# --- কনফিগ ---
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+CHANNELS = [
+    {"id": "@TheDubbedStationBD", "link": "https://t.me/TheDubbedStationBD", "name": "Main Channel"},
+    {"id": "@mediastationbd", "link": "https://t.me/mediastationbd", "name": "Backup Channel"},
+]
+POST_CHANNELS = ["@TheDubbedStationBD"] # যেসব চ্যানেলে অটো পোস্ট যাবে
+
 app = Flask(__name__)
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["super_bot_db"]
 users_col = db["users"]
 content_col = db["contents"]
 
+bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"), parse_mode="HTML")
+
 @app.route('/')
 def home():
     all_content = list(content_col.find().sort("_id", -1))
     return render_template('index.html', contents=all_content)
 
-def run():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
-
 def keep_alive():
-    t = Thread(target=run)
+    t = Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000))))
     t.daemon = True
     t.start()
 
-# --- Bot Config ---
-API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-bot = telebot.TeleBot(API_TOKEN, parse_mode="HTML")
+# --- ফোর্স জয়েন চেক ---
+def get_not_joined(user_id):
+    not_joined = []
+    for ch in CHANNELS:
+        try:
+            status = bot.get_chat_member(ch["id"], user_id).status
+            if status not in ['member', 'administrator', 'creator']: not_joined.append(ch)
+        except: continue
+    return not_joined
 
-# ---------------- DOWNLOADER LOGIC (New) ----------------
-@bot.message_handler(func=lambda m: m.text and ("facebook.com" in m.text or "tiktok.com" in m.text or "youtube.com" in m.text or "youtu.be" in m.text or "instagram.com" in m.text))
-def handle_download(message):
-    chat_id = message.chat.id
-    url = message.text
-    msg = bot.send_message(chat_id, "⏳ ভিডিওটি প্রসেস করা হচ্ছে, দয়া করে অপেক্ষা করুন...")
-    
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': f'video_{chat_id}.mp4',
-        'quiet': True,
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = f'video_{chat_id}.mp4'
-            
-            with open(filename, 'rb') as f:
-                bot.send_video(chat_id, f, caption=f"✅ ডাউনলোড সফল!\n🎬 {info.get('title')}")
-            
-            if os.path.exists(filename): os.remove(filename)
-            bot.delete_message(chat_id, msg.message_id)
-            
-    except Exception as e:
-        bot.edit_message_text(f"❌ এরর: ভিডিওটি ডাউনলোড করা যাচ্ছে না। লিঙ্কটি চেক করুন।", chat_id, msg.message_id)
-
-# ---------------- START & MENU (Original) ----------------
+# --- স্টার্ট কমান্ড ---
 @bot.message_handler(commands=['start'])
 def start(message):
-    if not users_col.find_one({"user_id": message.chat.id}):
-        users_col.insert_one({"user_id": message.chat.id})
+    user_id = message.chat.id
+    if not users_col.find_one({"user_id": user_id}): 
+        users_col.insert_one({"user_id": user_id})
+    
+    not_joined = get_not_joined(user_id)
+    if not_joined:
+        markup = types.InlineKeyboardMarkup()
+        for ch in not_joined: markup.add(types.InlineKeyboardButton(f"📢 Join {ch['name']}", url=ch['link']))
+        markup.add(types.InlineKeyboardButton("🔄 চেক করুন (Check Join)", callback_data="check_status"))
+        bot.send_message(user_id, "⚠️ **এক্সেস ডিনাইড!**\nবোটের সার্ভিসগুলো ব্যবহার করতে আমাদের চ্যানেলে জয়েন করুন।", reply_markup=markup)
+        return
+    show_menu(user_id)
 
+def show_menu(chat_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(types.KeyboardButton("🚀 ওপেন সুপার অ্যাপ", web_app=types.WebAppInfo(url=os.getenv("RENDER_URL"))))
-    markup.row("🎬 Movies", "📺 Dramas")
-    markup.row("🎭 Series", "🔍 Search")
+    markup.row("🎬 Movies", "📺 Dramas", "🎭 Series")
+    markup.row("🔍 Search")
+    bot.send_message(chat_id, "👋 **MediaGo Hub**-এ স্বাগতম!\nভিডিও ডাউনলোড করতে লিঙ্কটি পেস্ট করুন।", reply_markup=markup)
 
-    bot.send_message(message.chat.id, "👋 MediaGo Hub-এ স্বাগতম!\nভিডিও ডাউনলোড করতে সরাসরি লিঙ্কটি পেস্ট করুন।", reply_markup=markup)
+@bot.callback_query_handler(func=lambda call: call.data == "check_status")
+def check_status(call):
+    if not get_not_joined(call.from_user.id):
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        show_menu(call.message.chat.id)
+    else: bot.answer_callback_query(call.id, "❌ আপনি এখনো জয়েন করেননি!", show_alert=True)
 
-# ---------------- CONTENT SENDING (Original) ----------------
-def send_content(chat_id, contents, page=0, category=None):
-    per_page = 5
-    start_idx = page * per_page
-    end_idx = start_idx + per_page
-    items = contents[start_idx:end_idx]
+# --- ডাউনলোডার লজিক (মিনি অ্যাপে রিডাইরেক্ট) ---
+@bot.message_handler(func=lambda m: any(x in m.text for x in ["facebook.com", "tiktok.com", "youtube.com", "youtu.be", "instagram.com"]))
+def handle_link(message):
+    mini_app_url = f"{os.getenv('RENDER_URL')}?download_url={message.text}"
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔓 Unlock & Download Video", web_app=types.WebAppInfo(url=mini_app_url)))
+    bot.send_message(message.chat.id, "📥 **ভিডিওটি প্রস্তুত!**\nনিচের বাটনে ক্লিক করে আনলক করুন।", reply_markup=markup)
 
-    if not items:
-        bot.send_message(chat_id, "❌ আর কোনো কন্টেন্ট নেই।")
-        return
-
-    for item in items:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(
-            types.InlineKeyboardButton("▶ Watch", url=item['link']),
-            types.InlineKeyboardButton("⬇ Download", url=item['link'])
-        )
-        caption = f"🎬 <b>{item['name']}</b>\n📂 {item['category'].upper()}\n⭐ Premium Content"
-        try: bot.send_photo(chat_id, item['image'], caption=caption, reply_markup=markup)
-        except: bot.send_message(chat_id, f"🎬 {item['name']}\n(Image Error)", reply_markup=markup)
-
-    nav = types.InlineKeyboardMarkup()
-    btns = []
-    cb_cat = category if category else "all"
-    if page > 0: btns.append(types.InlineKeyboardButton("⬅ Prev", callback_data=f"page_{page-1}_{cb_cat}"))
-    if end_idx < len(contents): btns.append(types.InlineKeyboardButton("Next ➡", callback_data=f"page_{page+1}_{cb_cat}"))
-    if btns: nav.add(*btns); bot.send_message(chat_id, f"📄 Page: {page + 1}", reply_markup=nav)
-
-# ---------------- CATEGORY & SEARCH (Original) ----------------
-@bot.message_handler(func=lambda m: m.text in ["🎬 Movies", "📺 Dramas", "🎭 Series"])
-def category_handler(message):
-    cat_map = {"🎬 Movies": "movie", "📺 Dramas": "drama", "🎭 Series": "series"}
-    cat = cat_map[message.text]
-    contents = list(content_col.find({"category": cat}).sort("_id", -1))
-    if not contents: bot.send_message(message.chat.id, "❌ No content found"); return
-    send_content(message.chat.id, contents, page=0, category=cat)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("page_"))
-def pagination(call):
-    data = call.data.split("_")
-    page, cat = int(data[1]), data[2]
-    contents = list(content_col.find().sort("_id", -1)) if cat == "all" else list(content_col.find({"category": cat}).sort("_id", -1))
-    bot.delete_message(call.message.chat.id, call.message.message_id)
-    send_content(call.message.chat.id, contents, page, category=cat)
-
-@bot.message_handler(func=lambda m: m.text == "🔍 Search")
-def ask_search(message):
-    msg = bot.send_message(message.chat.id, "🔍 মুভি বা নাটকের নাম লিখে পাঠান:")
-    bot.register_next_step_handler(msg, do_search)
-
-def do_search(message):
-    results = list(content_col.find({"name": {"$regex": message.text, "$options": "i"}}))
-    if not results: bot.send_message(message.chat.id, "❌ পাওয়া যায়নি!"); return
-    send_content(message.chat.id, results, page=0)
-
-# ---------------- ADMIN POST (Original) ----------------
+# --- অটো পোস্ট ও ব্রডকাস্ট ---
 @bot.message_handler(commands=['post'])
-def post(message):
+def post_content(message):
     if message.from_user.id != ADMIN_ID: return
     try:
+        # ফরম্যাট: /post Name | Category | Img_Link | Watch_Link
         data = message.text.replace("/post", "").strip().split("|")
-        name, cat, image, link = [d.strip() for d in data]
-        content_col.insert_one({"name": name, "category": cat.lower(), "image": image, "link": link, "date": time.ctime()})
-        bot.send_message(ADMIN_ID, f"✅ Added: {name}")
-    except: bot.send_message(ADMIN_ID, "❌ Format: /post name | category | img | link")
+        name, cat, img, link = [x.strip() for x in data]
+        content_col.insert_one({"name": name, "category": cat.lower(), "image": img, "link": link})
+        
+        # চ্যানেলে অটো পোস্ট
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🚀 Watch / Download Now", url=f"https://t.me/{bot.get_me().username}?start=search"))
+        post_caption = f"🎬 <b>নতুন কন্টেন্ট আপলোড!</b>\n\n📌 <b>নাম:</b> {name}\n📂 <b>ক্যাটাগরি:</b> {cat.upper()}"
+        for ch in POST_CHANNELS:
+            try: bot.send_photo(ch, img, caption=post_caption, reply_markup=markup)
+            except: pass
+            
+        # সব ইউজারকে ব্রডকাস্ট করা
+        for user in users_col.find():
+            try: bot.send_message(user["user_id"], f"🔥 <b>নতুন ভিডিও যোগ হয়েছে:</b> {name}\nবটে চেক করুন!")
+            except: pass
+        bot.send_message(ADMIN_ID, f"✅ সফলভাবে ডাটাবেস ও চ্যানেলে পোস্ট করা হয়েছে!")
+    except: bot.send_message(ADMIN_ID, "❌ ফরম্যাট: /post Name | Category | Img | Link")
 
-# ---------------- RUN ----------------
+# --- অ্যাক্টিভ ইউজার ক্লিনআপ ---
+@bot.message_handler(commands=['stats'])
+def stats_cleanup(message):
+    if message.from_user.id != ADMIN_ID: return
+    msg = bot.send_message(ADMIN_ID, "🔍 ইউজার ডাটাবেস স্ক্যান করা হচ্ছে এবং ইনঅ্যাক্টিভ ইউজার ডিলিট করা হচ্ছে...")
+    total = users_col.count_documents({})
+    active, deleted = 0, 0
+    for user in users_col.find():
+        try:
+            bot.send_chat_action(user["user_id"], 'typing')
+            active += 1
+        except:
+            users_col.delete_one({"user_id": user["user_id"]})
+            deleted += 1
+        time.sleep(0.05)
+    bot.edit_message_text(f"📊 **স্ট্যাটাস রিপোর্ট**\n\n✅ অ্যাক্টিভ: {active}\n🗑️ ডিলিট হয়েছে: {deleted}\n📱 মোট: {total}", ADMIN_ID, msg.message_id)
+
 if __name__ == "__main__":
     keep_alive()
     bot.infinity_polling()
