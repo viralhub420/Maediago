@@ -6,98 +6,99 @@
     <title>MediaGo Super App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='10706593' data-sdk='show_10706593'></script>
-
     <style>
         :root { --primary: #00d4ff; --bg: #09090b; --card: #18181b; }
         body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding: 15px; padding-bottom: 50px; }
-        .header { text-align: center; padding: 10px 0; border-bottom: 1px solid #27272a; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .tool-card { background: var(--card); padding: 20px 10px; border-radius: 15px; border: 1px solid #27272a; text-align: center; cursor: pointer; transition: 0.3s; }
-        .tool-card:active { transform: scale(0.95); background: #27272a; }
-        .tool-card i { font-size: 28px; display: block; margin-bottom: 8px; font-style: normal; }
-        .tool-card span { font-size: 13px; color: #a1a1aa; font-weight: bold; }
-        .section-title { font-size: 18px; margin: 25px 0 12px; color: var(--primary); font-weight: bold; border-left: 3px solid var(--primary); padding-left: 10px; }
-        .content-scroll { display: flex; overflow-x: auto; gap: 12px; scrollbar-width: none; padding-bottom: 10px; }
-        .content-scroll::-webkit-scrollbar { display: none; }
-        .content-card { min-width: 140px; background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #27272a; flex-shrink: 0; }
-        .content-card img { width: 100%; height: 180px; object-fit: cover; }
-        .btn-watch { background: var(--primary); color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 8px; transition: 0.2s; }
-        .btn-watch:active { background: #00b8e6; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .tool-card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #27272a; text-align: center; font-size: 13px; }
+        .cat-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 15px; scrollbar-width: none; }
+        .tab { background: #27272a; padding: 8px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; border: none; color: #fff; white-space: nowrap; }
+        .tab.active { background: var(--primary); color: #000; font-weight: bold; }
+        .content-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #27272a; display: none; }
+        .card.show { display: block; }
+        .card img { width: 100%; height: 140px; object-fit: cover; }
+        .btn-dl { background: var(--primary); border: none; width: 100%; padding: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1 style="color:var(--primary); margin:0;">MediaGo Hub</h1>
-        <p style="font-size:12px; color:#71717a;">আপনার সব সমস্যার এক সমাধান</p>
-    </div>
+    <h2 style="text-align:center; color:var(--primary); margin: 0 0 15px 0;">MediaGo Hub</h2>
 
     <div class="grid">
-        <div class="tool-card" onclick="openTool('ডাউনলোডার')"><i>📥</i><span>ফ্রী ডাউনলোডার</span></div>
-        <div class="tool-card" onclick="openTool('পিডিএফ')"><i>📄</i><span>PDF কনভার্টার</span></div>
-        <div class="tool-card" onclick="openTool('এআই')"><i>🎨</i><span>AI ইমেজ</span></div>
-        <div class="tool-card" onclick="openTool('বিজি')"><i>🖼️</i><span>BG রিমুভার</span></div>
-        <div class="tool-card" onclick="openTool('এডিটর')"><i>📸</i><span>ফটো এডিটর</span></div>
-        <div class="tool-card" onclick="openTool('গেম')"><i>🎮</i><span>গেম জোন</span></div>
-        <div class="tool-card" onclick="openTool('কিউআর')"><i>🔍</i><span>QR স্ক্যানার</span></div>
-        <div class="tool-card" onclick="openTool('নিউজ')"><i>📰</i><span>ডেইলি নিউজ</span></div>
+        <div class="tool-card" onclick="alert('বটে লিঙ্ক দিন')">📥 Downloader</div>
+        <div class="tool-card" onclick="location.href='https://perchance.org/ai-text-to-image-generator'">🎨 AI Image</div>
     </div>
 
-    <div class="section-title">🎬 লেটেস্ট মুভি ও নাটক</div>
-    <div class="content-scroll">
-        {% if contents %}
-            {% for item in contents %}
-            <div class="content-card">
-                <img src="{{ item.image }}">
-                <div style="padding:10px; text-align:center;">
-                    <div style="font-size:12px; height:34px; overflow:hidden; font-weight: 500;">{{ item.name }}</div>
-                    <button class="btn-watch" onclick="watchContent('{{ item.link }}')">Download</button>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <p style="font-size:12px; padding: 20px;">কোনো পোস্ট নেই। বোট থেকে /post করুন।</p>
-        {% endif %}
+    <div class="cat-tabs">
+        <button class="tab active" onclick="filter('all', this)">All</button>
+        <button class="tab" onclick="filter('movie', this)">Movies</button>
+        <button class="tab" onclick="filter('drama', this)">Dramas</button>
+        <button class="tab" onclick="filter('series', this)">Series</button>
+    </div>
+
+    <div class="content-grid" id="list">
+        {% for item in contents %}
+        <div class="card show" data-cat="{{ item.category }}">
+            <img src="{{ item.image }}">
+            <div style="padding:8px; text-align:center; font-size:12px; height: 32px; overflow: hidden;">{{ item.name }}</div>
+            <button class="btn-dl" onclick="unlock('{{ item.link }}')">Download</button>
+        </div>
+        {% endfor %}
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        const directAdLink = "https://omg10.com/4/10651831";
 
-        function openTool(name) {
-            // কিউআর স্ক্যানার আমরা ফ্রী (No Ads) রাখার প্ল্যান করেছিলাম
-            if (name === 'কিউআর') {
-                handleAction(name);
-            } else {
-                // বাকিগুলোর জন্য অ্যাড দেখাবে
-                if (typeof show_10706593 === 'function') {
-                    show_10706593().then(() => { handleAction(name); }).catch(() => { handleAction(name); });
-                } else { handleAction(name); }
-            }
+        // ক্যাটাগরি ফিল্টার
+        function filter(c, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.card').forEach(i => {
+                i.classList.toggle('show', c === 'all' || i.dataset.cat === c);
+            });
         }
 
-        function handleAction(name) {
-            if(name === 'ডাউনলোডার') { 
-                tg.showConfirm("ভিডিও ডাউনলোড করতে লিঙ্ক পাঠিয়ে বোট-এ ফিরে যান। আপনি কি চ্যাটে ফিরতে চান?", (ok) => {
-                    if(ok) tg.close();
-                }); 
-            }
-            else if(name === 'পিডিএফ') window.location.href = "https://www.ilovepdf.com/";
-            else if(name === 'এআই') window.location.href = "https://perchance.org/ai-text-to-image-generator";
-            else if(name === 'বিজি') window.location.href = "https://www.remove.bg/upload";
-            else if(name === 'এডিটর') window.location.href = "https://www.photopea.com/";
-            else if(name === 'গেম') window.location.href = "https://www.gamepix.com/";
-            else if(name === 'কিউআর') window.location.href = "https://qrcodescan.in/";
-            else if(name === 'নিউজ') window.location.href = "https://www.bbc.com/bengali";
-            else tg.showAlert(name + " শীঘ্রই আসছে!");
+        // অ্যাড-লক ও আনলক প্রসেস
+        function unlock(link) {
+            tg.showConfirm("ভিডিওটি আনলক করতে ১০ সেকেন্ড অ্যাড দেখুন। আপনি কি প্রস্তুত?", (ok) => {
+                if (ok) {
+                    if (typeof show_10706593 === 'function') show_10706593().then(() => startTimer(link));
+                    else startTimer(link);
+                }
+            });
         }
 
-        function watchContent(link) {
-            if (typeof show_10706593 === 'function') {
-                show_10706593().then(() => { window.location.href = link; }).catch(() => { window.location.href = link; });
-            } else { window.location.href = link; }
+        function startTimer(link) {
+            let s = 10;
+            tg.MainButton.show();
+            tg.MainButton.disable();
+            const timer = setInterval(() => {
+                tg.MainButton.setText(`Unlocking Video in ${s}s...`);
+                if (s <= 0) {
+                    clearInterval(timer);
+                    tg.MainButton.setText("✅ Click Here to Unlock Now");
+                    tg.MainButton.enable();
+                    tg.MainButton.onClick(() => {
+                        window.location.href = directAdLink; // প্রথমে অ্যাড লিঙ্কে পাঠাবে
+                        setTimeout(() => { window.location.href = link; }, 3000); // ৩ সেকেন্ড পর ভিডিওর লিঙ্ক
+                    });
+                }
+                s--;
+            }, 1000);
+        }
+
+        // ডাউনলোডার লিঙ্ক থেকে সরাসরি আনলক অপশন
+        const urlParams = new URLSearchParams(window.location.search);
+        const dUrl = urlParams.get('download_url');
+        if (dUrl) {
+            window.onload = () => {
+                const finalDownloadLink = "https://snapsave.app/search?q=" + encodeURIComponent(dUrl);
+                unlock(finalDownloadLink);
+            };
         }
     </script>
 </body>
-                                                                                         </html>
-                                                                     
+</html>
