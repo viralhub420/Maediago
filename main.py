@@ -85,27 +85,38 @@ def handle_downloader(message):
     markup.add(types.InlineKeyboardButton("🔓 Unlock & Download", web_app=types.WebAppInfo(url=mini_app_url)))
     bot.send_message(message.chat.id, "📥 **ভিডিও লিঙ্ক পাওয়া গেছে!**\n\nনিচের বাটনে ক্লিক করে অ্যাড দেখে আনলক করুন।", reply_markup=markup)
 
-# --- অ্যাডমিন পোস্ট কমান্ড ---
+#--- আপডেট করা অ্যাডমিন পোস্ট কমান্ড ---
 @bot.message_handler(commands=['post'])
 def admin_post(message):
-    if message.from_user.id != ADMIN_ID: return
+    if message.from_user.id != ADMIN_ID:
+        return
     try:
-        # ফরম্যাট: /post Name | Category | Image_URL | Video_URL
-        data = [x.strip() for x in message.text.replace("/post", "").split("|")]
+        # যদি ছবির ক্যাপশনে কমান্ড থাকে তবে সেটি নেবে, নাহলে সাধারণ টেক্সট নেবে
+        full_text = message.caption if message.caption else message.text
+        
+        # ফরম্যাট চেক করা
+        content_text = full_text.replace("/post", "").strip()
+        data = [x.strip() for x in content_text.split("|")]
+        
+        if len(data) < 4:
+            bot.reply_to(message, "❌ ভুল ফরম্যাট! ৪টি তথ্য দিন:\nনাম | ক্যাটাগরি | ইমেজ | লিঙ্ক")
+            return
+
         name, cat, img, link = data
         
         # ডাটাবেসে সেভ
         content_col.insert_one({"name": name, "category": cat.lower(), "image": img, "link": link})
         
-        # চ্যানেলে পোস্ট
+        # চ্যানেলে অটো পোস্ট
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🚀 Watch / Download", url=f"https://t.me/{bot.get_me().username}?start=search"))
         for ch in POST_CHANNELS:
-            bot.send_photo(ch, img, caption=f"🎬 <b>New Content: {name}</b>\n📂 Category: {cat.upper()}", reply_markup=markup)
+            try: bot.send_photo(ch, img, caption=f"🎬 <b>New Content: {name}</b>\n📂 Category: {cat.upper()}", reply_markup=markup)
+            except: pass
             
-        bot.send_message(ADMIN_ID, "✅ পোস্ট সফল হয়েছে!")
-    except:
-        bot.send_message(ADMIN_ID, "❌ ভুল ফরম্যাট! সঠিক: /post Name | Category | Img | Link")
+        bot.reply_to(message, "✅ সফলভাবে পোস্ট এবং চ্যানেলে শেয়ার করা হয়েছে!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ এরর: {str(e)}")
 
 # --- ইউজার স্ট্যাটাস ও ক্লিনআপ ---
 @bot.message_handler(commands=['stats'])
