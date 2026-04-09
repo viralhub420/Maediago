@@ -55,14 +55,14 @@
     </div>
 
     <div class="grid">
-        <div class="tool-card" onclick="location.href='https://t.me/TheDubbedStationBD'"><i>📥</i><span>ফ্রী ডাউনলোডার</span></div>
+        <div class="tool-card" onclick="location.href='https://www.canva.com/resumes/templates/'"><i>📄</i><span>AI রেজ্যুমে মেকার</span></div>
         <div class="tool-card" onclick="location.href='https://www.ilovepdf.com/'"><i>📄</i><span>PDF কনভার্টার</span></div>
         <div class="tool-card" onclick="location.href='https://perchance.org/ai-text-to-image-generator'"><i>🎨</i><span>AI ইমেজ</span></div>
         <div class="tool-card" onclick="location.href='https://www.remove.bg/upload'"><i>🖼️</i><span>BG রিমুভার</span></div>
         <div class="tool-card" onclick="location.href='https://www.photopea.com/'"><i>✨</i><span>ফটো এডিটর</span></div>
         <div class="tool-card" onclick="location.href='https://tamerlan.xyz/games/'"><i>🎮</i><span>গেম জোন</span></div>
         <div class="tool-card" onclick="location.href='https://qrcodescan.in/'"><i>🔍</i><span>QR স্ক্যানার</span></div>
-        <div class="tool-card" onclick="location.href='https://www.bbc.com/bengali'"><i>📰</i><span>ডেইলি নিউজ</span></div>
+        <div class="tool-card" onclick="location.href='https://www.bbc.com/bengali'"><i>📰</i><span> DAILY NEWS</span></div>
     </div>
 
     <div class="earn-btn" onclick="showEarn()">
@@ -125,16 +125,12 @@
             tg.showAlert("⚠️ আপনার ব্যালেন্স নূন্যতম ৫০০ পয়েন্ট হতে হবে।");
         }
 
-        // --- স্মার্ট আনলক লজিক (ডাউনলোডার ফিক্সড) ---
         function unlockContent(targetLink) {
             tg.showConfirm("এটি আনলক করতে ১০ সেকেন্ড অপেক্ষা করুন।", (ok) => {
                 if (ok) {
-                    // যদি Monetag SDK থাকে তবে অ্যাড দেখাবে, নাহলে সরাসরি টাইমার
                     if (typeof show_10706593 === 'function') {
                         show_10706593().then(() => startTimer(targetLink)).catch(() => startTimer(targetLink));
-                    } else { 
-                        startTimer(targetLink); 
-                    }
+                    } else { startTimer(targetLink); }
                 }
             });
         }
@@ -152,28 +148,16 @@
                     tg.MainButton.enable();
                     
                     tg.MainButton.onClick(() => {
-                        // ইউজারকে প্রথমে অ্যাড লিঙ্কে পাঠাবে (আপনার ইনকাম)
                         window.open(directLink, "_blank"); 
-                        
-                        // ৩ সেকেন্ড পর আসল ফাইল/মুভি লিঙ্কে পাঠাবে
                         setTimeout(() => {
                             window.location.href = link;
-                        }, 3000);
+                        }, 2000); 
                     });
                 }
                 s--;
             }, 1000);
         }
-
-        // অটোমেটিক ভিডিও ডাউনলোডার চেক
-        const urlParams = new URLSearchParams(window.location.search);
-        const downloadUrl = urlParams.get('download_url');
-        if (downloadUrl) {
-            // ফেসবুক/টিকটক লিঙ্ক হলে স্ন্যাপসেভ এর মাধ্যমে আনলক করবে
-            const fastLink = "https://snapsave.app/search?q=" + encodeURIComponent(downloadUrl);
-            unlockContent(fastLink);
-        }
     </script>
 </body>
     </html>
-                
+                                                                                                              
