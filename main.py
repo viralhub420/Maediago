@@ -1,5 +1,4 @@
 import os
-import time
 import telebot
 from telebot import types
 from pymongo import MongoClient
@@ -26,7 +25,6 @@ bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"), parse_mode="HTML")
 # --- ফ্রন্টএন্ড রুট ---
 @app.route('/')
 def home():
-    # ডাটাবেস থেকে সব মুভি/নাটক নিয়ে আসা (লেটেস্টগুলো আগে দেখাবে)
     all_content = list(content_col.find().sort("_id", -1))
     return render_template('index.html', contents=all_content)
 
@@ -48,7 +46,6 @@ def is_joined(user_id):
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
-    # ইউজার সেভ করা
     if not users_col.find_one({"user_id": user_id}):
         users_col.insert_one({"user_id": user_id})
     
@@ -57,17 +54,15 @@ def start(message):
         for ch in CHANNELS:
             markup.add(types.InlineKeyboardButton(f"📢 Join {ch['name']}", url=ch['link']))
         markup.add(types.InlineKeyboardButton("🔄 চেক করুন", callback_data="check_join"))
-        bot.send_message(user_id, "⚠️ **এক্সেস ডিনাইড!**\n\nআমাদের চ্যানেলে জয়েন না করলে বোটটি কাজ করবে না।", reply_markup=markup)
+        bot.send_message(user_id, "⚠️ **এক্সেস ডিনাইড!**\n\nচ্যানেলে জয়েন না করলে বোট কাজ করবে না।", reply_markup=markup)
         return
-    
     show_main_menu(user_id)
 
 def show_main_menu(chat_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    # সুপার অ্যাপ বাটন
     markup.row(types.KeyboardButton("🚀 ওপেন সুপার অ্যাপ", web_app=types.WebAppInfo(url=os.getenv("RENDER_URL"))))
     markup.row("🎬 Movies", "💰 Earning", "📊 Stats")
-    bot.send_message(chat_id, "👋 **MediaGo Hub**-এ স্বাগতম!\n\nনিচের বাটন থেকে সুপার অ্যাপ ওপেন করুন অথবা যেকোনো ভিডিও লিঙ্ক পাঠিয়ে ডাউনলোড করুন।", reply_markup=markup)
+    bot.send_message(chat_id, "👋 **MediaGo Hub**-এ স্বাগতম!\n\nভিডিও লিঙ্ক পাঠিয়ে সরাসরি ডাউনলোড করুন অথবা সুপার অ্যাপ ওপেন করুন।", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_join")
 def check_join_callback(call):
@@ -77,62 +72,50 @@ def check_join_callback(call):
     else:
         bot.answer_callback_query(call.id, "❌ আপনি এখনো জয়েন করেননি!", show_alert=True)
 
-# --- ভিডিও ডাউনলোডার রিডাইরেক্ট ---
+# --- বটের ভেতর ভিডিও ডাউনলোডার (নিউ ফিচার) ---
 @bot.message_handler(func=lambda m: any(x in m.text for x in ["facebook.com", "tiktok.com", "youtube.com", "youtu.be", "instagram.com"]))
 def handle_downloader(message):
-    mini_app_url = f"{os.getenv('RENDER_URL')}?download_url={message.text}"
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔓 Unlock & Download", web_app=types.WebAppInfo(url=mini_app_url)))
-    bot.send_message(message.chat.id, "📥 **ভিডিও লিঙ্ক পাওয়া গেছে!**\n\nনিচের বাটনে ক্লিক করে অ্যাড দেখে আনলক করুন।", reply_markup=markup)
+    video_url = message.text
+    direct_ad_link = "https://omg10.com/4/10651831" # আপনার মনিট্যাগ লিঙ্ক
+    download_api = f"https://snapsave.app/search?q={video_url}"
 
-#--- আপডেট করা অ্যাডমিন পোস্ট কমান্ড ---
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔓 Unlock Download (Ad)", url=direct_ad_link))
+    markup.add(types.InlineKeyboardButton("📥 Download Now", url=download_api))
+    
+    bot.send_message(message.chat.id, "📥 **ভিডিও লিঙ্ক পাওয়া গেছে!**\n\nপ্রথমে Unlock বাটনে ক্লিক করে অ্যাড দেখুন, তারপর Download বাটনে ক্লিক করুন।", reply_markup=markup)
+
+# --- অ্যাডমিন পোস্ট কমান্ড (ফিক্সড) ---
 @bot.message_handler(commands=['post'])
 def admin_post(message):
-    if message.from_user.id != ADMIN_ID:
-        return
+    if message.from_user.id != ADMIN_ID: return
     try:
-        # যদি ছবির ক্যাপশনে কমান্ড থাকে তবে সেটি নেবে, নাহলে সাধারণ টেক্সট নেবে
-        full_text = message.caption if message.caption else message.text
-        
-        # ফরম্যাট চেক করা
-        content_text = full_text.replace("/post", "").strip()
+        raw_text = message.caption if message.caption else message.text
+        content_text = raw_text.replace("/post", "").strip()
         data = [x.strip() for x in content_text.split("|")]
         
         if len(data) < 4:
-            bot.reply_to(message, "❌ ভুল ফরম্যাট! ৪টি তথ্য দিন:\nনাম | ক্যাটাগরি | ইমেজ | লিঙ্ক")
+            bot.reply_to(message, "❌ ফরম্যাট: নাম | ক্যাটাগরি | ইমেজ লিঙ্ক | ভিডিও লিঙ্ক")
             return
 
         name, cat, img, link = data
-        
-        # ডাটাবেসে সেভ
         content_col.insert_one({"name": name, "category": cat.lower(), "image": img, "link": link})
         
-        # চ্যানেলে অটো পোস্ট
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🚀 Watch / Download", url=f"https://t.me/{bot.get_me().username}?start=search"))
         for ch in POST_CHANNELS:
-            try: bot.send_photo(ch, img, caption=f"🎬 <b>New Content: {name}</b>\n📂 Category: {cat.upper()}", reply_markup=markup)
+            try: bot.send_photo(ch, img, caption=f"🎬 <b>New: {name}</b>\n📂 Category: {cat.upper()}", reply_markup=markup)
             except: pass
-            
-        bot.reply_to(message, "✅ সফলভাবে পোস্ট এবং চ্যানেলে শেয়ার করা হয়েছে!")
+        bot.reply_to(message, "✅ পোস্ট সফল হয়েছে!")
     except Exception as e:
-        bot.reply_to(message, f"❌ এরর: {str(e)}")
+        bot.reply_to(message, f"❌ ভুল: {str(e)}")
 
-# --- ইউজার স্ট্যাটাস ও ক্লিনআপ ---
+# --- স্ট্যাটাস চেক ---
 @bot.message_handler(commands=['stats'])
-def stats_cleanup(message):
+def stats(message):
     if message.from_user.id != ADMIN_ID: return
-    msg = bot.send_message(ADMIN_ID, "🔍 ইউজার ডাটাবেস চেক করা হচ্ছে...")
     total = users_col.count_documents({})
-    active, deleted = 0, 0
-    for user in users_col.find():
-        try:
-            bot.send_chat_action(user["user_id"], 'typing')
-            active += 1
-        except:
-            users_col.delete_one({"user_id": user["user_id"]})
-            deleted += 1
-    bot.edit_message_text(f"📊 **স্ট্যাটাস রিপোর্ট**\n\n✅ অ্যাক্টিভ: {active}\n🗑️ ইনঅ্যাক্টিভ ডিলিট: {deleted}\n📱 মোট: {total}", ADMIN_ID, msg.message_id)
+    bot.reply_to(message, f"📊 **বোট স্ট্যাটাস**\n\n📱 মোট ইউজার: {total}")
 
 if __name__ == "__main__":
     keep_alive()
