@@ -10,13 +10,12 @@ from threading import Thread
 from yt_dlp import YoutubeDL
 
 # --- CONFIG ---
-ADMIN_ID = int(os.getenv("ADMIN_ID", "6311806060")) # আপনার আগের কোডের আইডি সেট করা হয়েছে
-
+ADMIN_ID = int(os.getenv("ADMIN_ID", "6311806060"))
 CHANNELS = [
     {"id": "@TheDubbedStationBD", "link": "https://t.me/TheDubbedStationBD", "name": "Main Channel"},
 ]
-
 POST_CHANNELS = ["@TheDubbedStationBD"]
+MONETAG_LINK = "https://omg10.com/4/10651831"
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"), parse_mode="HTML")
 
@@ -58,7 +57,6 @@ def is_joined(user_id):
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
-
     users_col.update_one(
         {"user_id": user_id},
         {"$setOnInsert": {"user_id": user_id}},
@@ -91,54 +89,69 @@ def check_join_callback(call):
         bot.answer_callback_query(call.id, "❌ এখনো জয়েন করেননি!", show_alert=True)
 
 # =====================================================
-# 🔥 OLD SUCCESSFUL DOWNLOADER INTEGRATION
+# 🔥 ADVANCED DOWNLOADER WITH AD-CLICK LOGIC
 # =====================================================
 
 def get_tiktok_video(url):
     try:
-        # API 1
         res = requests.get(f"https://api.tiklydown.eu.org/api/download?url={url}", timeout=10).json()
         return res.get('video', {}).get('noWatermark')
     except:
         try:
-            # API 2
             res = requests.get(f"https://www.tikwm.com/api/?url={url}", timeout=10).json()
             return res.get('data', {}).get('play')
-        except: 
-            return None
+        except: return None
 
 @bot.message_handler(func=lambda m: m.text and any(x in m.text for x in ["facebook.com","tiktok.com","youtube.com","youtu.be","instagram.com"]))
 def handle_downloader(message):
     user_id = message.chat.id
     url = message.text
 
+    # Ad click status reset for new link
     users_col.update_one(
         {"user_id": user_id},
-        {"$set": {"last_url": url, "time": int(time.time())}},
+        {"$set": {"last_url": url, "time": int(time.time()), "clicked_ad": False}},
         upsert=True
     )
 
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🎬 Watch Ad (1 Min)", url="https://omg10.com/4/10651831"))
+    markup.add(types.InlineKeyboardButton("🎬 Watch Ad (1 Min)", callback_data="click_ad_logic"))
     markup.add(types.InlineKeyboardButton("🔓 Unlock Now", callback_data="unlock_video"))
 
-    bot.send_message(user_id, "⚠️ **লিঙ্কটি লক করা আছে!**\nভিডিওটি আনলক করতে অন্তত ১ মিনিট অ্যাডটি দেখুন।", reply_markup=markup)
+    bot.send_message(user_id, "⚠️ **লিঙ্কটি লক করা আছে!**\nভিডিওটি আনলক করতে প্রথমে **Watch Ad** বাটনে ক্লিক করে ১ মিনিট অ্যাডটি দেখুন।", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "click_ad_logic")
+def click_ad_logic(call):
+    users_col.update_one({"user_id": call.from_user.id}, {"$set": {"clicked_ad": True}})
+    bot.answer_callback_query(call.id, "অ্যাড ওপেন হচ্ছে...")
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🚀 Go to Ad (Watch 1 Min)", url=MONETAG_LINK))
+    markup.add(types.InlineKeyboardButton("🔓 Unlock Now", callback_data="unlock_video"))
+    
+    bot.edit_message_text("⏳ আপনি অ্যাড দেখছেন... ১ মিনিট শেষ হলে **Unlock Now** চাপুন।", 
+                          call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "unlock_video")
 def unlock_video(call):
     user = users_col.find_one({"user_id": call.from_user.id})
     if not user: return
 
+    # Ad Click Verification
+    if not user.get("clicked_ad", False):
+        bot.answer_callback_query(call.id, "❌ আপনি এখনো অ্যাডে ক্লিক করেননি! আগে Watch Ad বাটনে চাপ দিন।", show_alert=True)
+        return
+
     now = int(time.time())
     sent_time = user.get("time", 0)
     
     if now - sent_time < 60:
         remaining = 60 - (now - sent_time)
-        bot.answer_callback_query(call.id, f"❌ আর {remaining} সেকেন্ড অপেক্ষা করুন!", show_alert=True)
+        bot.answer_callback_query(call.id, f"⏳ অ্যাডটি এখনো শেষ হয়নি! আর {remaining} সেকেন্ড অপেক্ষা করুন।", show_alert=True)
     else:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("📥 Download Now", callback_data="download_video"))
-        bot.edit_message_text("✅ আনলক হয়েছে!\n\nডাউনলোড করতে নিচের বাটনে ক্লিক করুন 👇", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        bot.edit_message_text("✅ আনলক সফল!\n\nডাউনলোড করতে নিচের বাটনে ক্লিক করুন 👇", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "download_video")
 def download_video(call):
@@ -159,7 +172,6 @@ def download_video(call):
                 bot.send_message(call.message.chat.id, "❌ টিকটক ভিডিও পাওয়া যায়নি।")
         else:
             file_path = f"vid_{call.from_user.id}.mp4"
-            # আপনার সেই পুরাতন কোডের ডাউনলোডার অপশন
             ydl_opts = {
                 'format': 'best', 
                 'outtmpl': file_path, 
@@ -217,4 +229,4 @@ def stats(message):
 if __name__ == "__main__":
     keep_alive()
     bot.infinity_polling(none_stop=True)
-    
+                       
