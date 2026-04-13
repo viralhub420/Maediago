@@ -7,12 +7,15 @@ from telebot import types
 from pymongo import MongoClient
 from flask import Flask, render_template
 from threading import Thread
+from yt_dlp import YoutubeDL
 
 # --- CONFIG ---
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "6311806060")) # আপনার আগের কোডের আইডি সেট করা হয়েছে
+
 CHANNELS = [
     {"id": "@TheDubbedStationBD", "link": "https://t.me/TheDubbedStationBD", "name": "Main Channel"},
 ]
+
 POST_CHANNELS = ["@TheDubbedStationBD"]
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"), parse_mode="HTML")
@@ -31,8 +34,12 @@ def home():
     all_content = list(content_col.find().sort("_id", -1))
     return render_template('index.html', contents=all_content)
 
+def run():
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
+
 def keep_alive():
-    t = Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000))))
+    t = Thread(target=run)
     t.daemon = True
     t.start()
 
@@ -51,6 +58,7 @@ def is_joined(user_id):
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
+
     users_col.update_one(
         {"user_id": user_id},
         {"$setOnInsert": {"user_id": user_id}},
@@ -83,10 +91,21 @@ def check_join_callback(call):
         bot.answer_callback_query(call.id, "❌ এখনো জয়েন করেননি!", show_alert=True)
 
 # =====================================================
-# 🔥 UPDATED HYBRID DOWNLOADER (NO COOKIES NEEDED)
+# 🔥 OLD SUCCESSFUL DOWNLOADER INTEGRATION
 # =====================================================
 
-MAX_MB = 45 # Render free tier এর জন্য লিমিট বাড়ানো ঠিক হবে না
+def get_tiktok_video(url):
+    try:
+        # API 1
+        res = requests.get(f"https://api.tiklydown.eu.org/api/download?url={url}", timeout=10).json()
+        return res.get('video', {}).get('noWatermark')
+    except:
+        try:
+            # API 2
+            res = requests.get(f"https://www.tikwm.com/api/?url={url}", timeout=10).json()
+            return res.get('data', {}).get('play')
+        except: 
+            return None
 
 @bot.message_handler(func=lambda m: m.text and any(x in m.text for x in ["facebook.com","tiktok.com","youtube.com","youtu.be","instagram.com"]))
 def handle_downloader(message):
@@ -103,7 +122,7 @@ def handle_downloader(message):
     markup.add(types.InlineKeyboardButton("🎬 Watch Ad (1 Min)", url="https://omg10.com/4/10651831"))
     markup.add(types.InlineKeyboardButton("🔓 Unlock Now", callback_data="unlock_video"))
 
-    bot.send_message(user_id, "🔒 ভিডিও লক করা আছে!\n\n১ মিনিট অ্যাড দেখুন তারপর Unlock করুন।", reply_markup=markup)
+    bot.send_message(user_id, "⚠️ **লিঙ্কটি লক করা আছে!**\nভিডিওটি আনলক করতে অন্তত ১ মিনিট অ্যাডটি দেখুন।", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "unlock_video")
 def unlock_video(call):
@@ -111,22 +130,15 @@ def unlock_video(call):
     if not user: return
 
     now = int(time.time())
-    if now - user.get("time", 0) < 60:
-        remain = 60 - (now - user.get("time", 0))
-        bot.answer_callback_query(call.id, f"⏳ {remain} সেকেন্ড অপেক্ষা করুন!", show_alert=True)
-        return
-
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📥 Download Now", callback_data="download_video"))
-    bot.edit_message_text("✅ আনলক হয়েছে!\n\nডাউনলোড করুন 👇", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-def get_tiktok_fast(url):
-    try:
-        # বিকল্প টিকটক এপিআই
-        r = requests.get(f"https://api.tiklydown.eu.org/api/download?url={url}", timeout=10).json()
-        return r.get("video", {}).get("noWatermark")
-    except:
-        return None
+    sent_time = user.get("time", 0)
+    
+    if now - sent_time < 60:
+        remaining = 60 - (now - sent_time)
+        bot.answer_callback_query(call.id, f"❌ আর {remaining} সেকেন্ড অপেক্ষা করুন!", show_alert=True)
+    else:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("📥 Download Now", callback_data="download_video"))
+        bot.edit_message_text("✅ আনলক হয়েছে!\n\nডাউনলোড করতে নিচের বাটনে ক্লিক করুন 👇", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "download_video")
 def download_video(call):
@@ -136,48 +148,42 @@ def download_video(call):
         return
 
     url = user["last_url"]
-    status_msg = bot.send_message(call.message.chat.id, "⚡ প্রসেসিং হচ্ছে... একটু সময় নিন।")
+    status_msg = bot.send_message(call.message.chat.id, "⏳ প্রসেসিং হচ্ছে...")
 
     try:
-        # TikTok fast download attempt
         if "tiktok.com" in url:
-            fast = get_tiktok_fast(url)
-            if fast:
-                bot.send_video(call.message.chat.id, fast, caption="✅ TikTok Video Ready!")
-                bot.delete_message(call.message.chat.id, status_msg.message_id)
-                return
-
-        # General Downloader using yt-dlp
-        file_path = f"video_{call.from_user.id}.mp4"
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'outtmpl': file_path,
-            'quiet': True,
-            'no_warnings': True,
-            'noplaylist': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-
-        if os.path.exists(file_path):
-            size = os.path.getsize(file_path) / (1024 * 1024)
-            if size <= MAX_MB:
-                with open(file_path, 'rb') as v:
-                    bot.send_video(call.message.chat.id, v, caption="✅ আপনার ভিডিও প্রস্তুত!")
+            video_link = get_tiktok_video(url)
+            if video_link:
+                bot.send_video(call.message.chat.id, video_link, caption="✅ TikTok প্রস্তুত!")
             else:
-                bot.send_message(call.message.chat.id, f"⚠️ ভিডিওটি অনেক বড় ({int(size)}MB)।\nসরাসরি পাঠাতে পারছি না, লিংকটি ব্যবহার করুন।")
-            os.remove(file_path)
+                bot.send_message(call.message.chat.id, "❌ টিকটক ভিডিও পাওয়া যায়নি।")
         else:
-            bot.send_message(call.message.chat.id, "❌ ডাউনলোড করতে ব্যর্থ হয়েছে। ভিডিওটি হয়তো প্রাইভেট।")
+            file_path = f"vid_{call.from_user.id}.mp4"
+            # আপনার সেই পুরাতন কোডের ডাউনলোডার অপশন
+            ydl_opts = {
+                'format': 'best', 
+                'outtmpl': file_path, 
+                'quiet': True, 
+                'no_warnings': True,
+                'noplaylist': True
+            }
+            
+            with YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            
+            if os.path.exists(file_path):
+                with open(file_path, 'rb') as video:
+                    bot.send_video(call.message.chat.id, video, caption="✅ ভিডিও প্রস্তুত!")
+                os.remove(file_path)
+            else:
+                bot.send_message(call.message.chat.id, "❌ ডাউনলোড করতে ব্যর্থ হয়েছে।")
 
         bot.delete_message(call.message.chat.id, status_msg.message_id)
 
     except Exception as e:
-        print(f"Error: {e}")
-        bot.edit_message_text("❌ ব্যর্থ হয়েছে! সার্ভার ওভারলোড বা লিংক সমস্যা।", call.message.chat.id, status_msg.message_id)
-        if os.path.exists(file_path): os.remove(file_path)
+        bot.send_message(call.message.chat.id, f"❌ ডাউনলোড এরর! লিঙ্কটি আবার চেক করুন।")
+        if 'file_path' in locals() and os.path.exists(file_path):
+            os.remove(file_path)
 
 # =====================================================
 # 🔥 ADMIN & OTHER COMMANDS
@@ -210,5 +216,5 @@ def stats(message):
 
 if __name__ == "__main__":
     keep_alive()
-    print("Bot is running...")
-    bot.infinity_polling()
+    bot.infinity_polling(none_stop=True)
+    
