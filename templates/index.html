@@ -56,12 +56,12 @@
 
     <div class="grid">
         <div class="tool-card" onclick="location.href='https://www.canva.com/resumes/templates/'"><i>📄</i><span>AI রেজ্যুমে মেকার</span></div>
+        <div class="tool-card" onclick="window.open('https://snapsave.app', '_blank')"><i>🚀</i><span>Pro Downloader</span></div>
         <div class="tool-card" onclick="location.href='https://www.ilovepdf.com/'"><i>📄</i><span>PDF কনভার্টার</span></div>
         <div class="tool-card" onclick="location.href='https://perchance.org/ai-text-to-image-generator'"><i>🎨</i><span>AI ইমেজ</span></div>
         <div class="tool-card" onclick="location.href='https://www.remove.bg/upload'"><i>🖼️</i><span>BG রিমুভার</span></div>
         <div class="tool-card" onclick="location.href='https://www.photopea.com/'"><i>✨</i><span>ফটো এডিটর</span></div>
         <div class="tool-card" onclick="location.href='https://tamerlan.xyz/games/'"><i>🎮</i><span>গেম জোন</span></div>
-        <div class="tool-card" onclick="location.href='https://qrcodescan.in/'"><i>🔍</i><span>QR স্ক্যানার</span></div>
         <div class="tool-card" onclick="location.href='https://www.bbc.com/bengali'"><i>📰</i><span> DAILY NEWS</span></div>
     </div>
 
@@ -87,22 +87,18 @@
         <div class="modal-content">
             <h2 style="color:var(--gold);">পয়েন্ট জমান 💸</h2>
             <p style="font-size:12px; color:#ccc;">নিচের টাস্কগুলো করে ইনকাম শুরু করুন</p>
-            
             <div class="earn-item" onclick="earnAd()">
                 <span style="font-size:24px;">📅</span>
                 <div><b>Daily Reward</b><br><small>প্রতিদিন ৫০ পয়েন্ট বোনাস</small></div>
             </div>
-            
             <div class="earn-item" onclick="earnAd()">
                 <span style="font-size:24px;">📺</span>
                 <div><b>Watch Ads & Earn</b><br><small>অ্যাড দেখে আনলিমিটেড ইনকাম</small></div>
             </div>
-
             <div class="earn-item" style="border-left-color:#ef4444;" onclick="withdraw()">
                 <span style="font-size:24px;">💸</span>
                 <div><b>Withdraw Point</b><br><small>বিকাশ বা নগদে টাকা নিন</small></div>
             </div>
-
             <button onclick="hideEarn()" style="margin-top:30px; background:#3a3a3c; color:#fff; border:none; padding:12px 40px; border-radius:25px;">Close</button>
         </div>
     </div>
@@ -139,19 +135,15 @@
             let s = 10;
             tg.MainButton.show();
             tg.MainButton.disable();
-
             const timer = setInterval(() => {
                 tg.MainButton.setText(`Unlocking in ${s}s...`);
                 if (s <= 0) {
                     clearInterval(timer);
                     tg.MainButton.setText("✅ Click to Get File/Movie");
                     tg.MainButton.enable();
-                    
                     tg.MainButton.onClick(() => {
                         window.open(directLink, "_blank"); 
-                        setTimeout(() => {
-                            window.location.href = link;
-                        }, 2000); 
+                        setTimeout(() => { window.location.href = link; }, 2000); 
                     });
                 }
                 s--;
@@ -159,5 +151,5 @@
         }
     </script>
 </body>
-    </html>
-                                                                                                              
+                                                                                                                       </html>
+            
