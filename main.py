@@ -57,13 +57,25 @@ def show_main_menu(chat_id):
     markup.row("🎬 Movies", "💰 Earning", "📊 Stats")
     bot.send_message(chat_id, "👋 MediaGo Hub-এ স্বাগতম!\nলিঙ্ক পাঠান অথবা অ্যাপ ওপেন করুন।", reply_markup=markup)
 
-@bot.message_handler(func=lambda m: m.text and any(x in m.text for x in ["facebook.com","tiktok.com","youtube.com","youtu.be","instagram.com"]))
+# --- ডাউনলোড লজিক (FB, YT, TikTok, Instagram & Telegram Link) ---
+@bot.message_handler(func=lambda m: m.text and any(x in m.text for x in ["facebook.com","tiktok.com","youtube.com","youtu.be","instagram.com", "t.me/", "telegram.me/"]))
 def handle_downloader(message):
-    users_col.update_one({"user_id": message.chat.id}, {"$set": {"last_url": message.text, "time": int(time.time()), "clicked_ad": False}}, upsert=True)
+    url = message.text
+    user_id = message.chat.id
+
+    # যদি টেলিগ্রাম লিঙ্ক হয়
+    if "t.me/" in url or "telegram.me/" in url:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("📥 Download 1GB+ Video", web_app=types.WebAppInfo(url=os.getenv("RENDER_URL"))))
+        bot.send_message(user_id, "⚠️ <b>টেলিগ্রাম লিঙ্ক পাওয়া গেছে!</b>\n\n১ জিবি পর্যন্ত বড় ভিডিও ডাউনলোড করতে আমাদের সুপার অ্যাপের <b>'Telegram Pro'</b> বাটনটি ব্যবহার করুন।", reply_markup=markup)
+        return
+
+    # অন্যান্য সোশ্যাল মিডিয়া লিঙ্কের জন্য আগের অ্যাড লজিক
+    users_col.update_one({"user_id": user_id}, {"$set": {"last_url": url, "time": int(time.time()), "clicked_ad": False}}, upsert=True)
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🎬 Watch Ad (1 Min)", callback_data="click_ad_logic"))
     markup.add(types.InlineKeyboardButton("🔓 Unlock Now", callback_data="unlock_video"))
-    bot.send_message(message.chat.id, "⚠️ লিঙ্ক লক করা! অ্যাড দেখে আনলক করুন।", reply_markup=markup)
+    bot.send_message(user_id, "⚠️ লিঙ্ক লক করা! অ্যাড দেখে আনলক করুন।", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "click_ad_logic")
 def click_ad_logic(call):
@@ -80,16 +92,13 @@ def unlock_video(call):
         bot.answer_callback_query(call.id, "❌ আগে অ্যাড দেখুন!", show_alert=True)
         return
 
-    # সাইজ চেকিং লজিক
     try:
         ydl_opts = {'quiet': True}
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(user["last_url"], download=False)
             filesize = info.get('filesize', 0) or info.get('filesize_approx', 0)
-            
-            # ৫০ এমবি লিমিট
             if filesize > 50 * 1024 * 1024:
-                bot.edit_message_text("❌ **ভিডিওটি অনেক বড়!**\nদয়া করে মিনি অ্যাপের 'Pro Downloader' ফিচারটি ব্যবহার করুন।", call.message.chat.id, call.message.message_id)
+                bot.edit_message_text("❌ **ভিডিওটি অনেক বড়!**\nদয়া করে সুপার অ্যাপের 'Pro Downloader' ব্যবহার করুন।", call.message.chat.id, call.message.message_id)
                 return
     except: pass
     
@@ -120,4 +129,3 @@ def admin_cmd(message):
 if __name__ == "__main__":
     keep_alive()
     bot.infinity_polling()
-                                         
