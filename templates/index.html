@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaGo Hub 🚀</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src='//libtl.com/sdk.js' data-zone='10706593' data-sdk='show_10706593'></script>
+    <style>
+        :root { --primary: #00d4ff; --bg: #09090b; --card: #1c1c1e; --gold: #f1c40f; }
+        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; padding-bottom: 80px; overflow-x: hidden; }
+        
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: var(--primary); margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        .header p { font-size: 11px; color: #a1a1aa; margin-top: 5px; }
+
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+        .tool-card { background: var(--card); padding: 20px 10px; border-radius: 15px; border: 1px solid #2c2c2e; text-align: center; cursor: pointer; transition: 0.3s; }
+        .tool-card:active { transform: scale(0.95); background: #2c2c2e; }
+        .tool-card i { font-size: 28px; display: block; margin-bottom: 8px; font-style: normal; }
+        .tool-card span { font-size: 13px; font-weight: 500; color: #efeff4; }
+
+        .earn-btn { 
+            background: linear-gradient(135deg, #f39c12, #d35400); 
+            padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 25px; 
+            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.3); cursor: pointer;
+        }
+        .earn-btn i { font-size: 30px; display: block; }
+        .earn-btn b { font-size: 16px; display: block; margin-top: 5px; color: #fff; }
+
+        #earnModal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 1000; padding: 25px; box-sizing: border-box; 
+        }
+        .modal-content { margin-top: 50px; text-align: center; }
+        .earn-item { 
+            background: #2c2c2e; padding: 15px; border-radius: 12px; margin-bottom: 12px; 
+            border-left: 4px solid var(--gold); text-align: left; display: flex; align-items: center; gap: 15px;
+        }
+
+        .section-title { font-size: 16px; color: var(--primary); margin: 25px 0 15px 0; display: flex; align-items: center; gap: 8px; }
+        .movie-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .movie-card { background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid #2c2c2e; }
+        .movie-card img { width: 100%; height: 140px; object-fit: cover; }
+        .movie-info { padding: 8px; text-align: center; }
+        .movie-title { font-size: 12px; height: 32px; overflow: hidden; margin-bottom: 8px; color: #ddd; }
+        .btn-watch { background: var(--primary); color: #000; border: none; width: 100%; padding: 8px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>MediaGo Hub</h1>
+        <p>আপনার প্রয়োজনীয় সব সমাধান এক জায়গায়</p>
+    </div>
+
+    <div class="grid">
+        <div class="tool-card" onclick="tg.openLink('https://pastedownload.com/telegram-video-downloader/')"><i>📥</i><span>Telegram Pro (1GB)</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://10downloader.com')"><i>🚀</i><span>Pro Downloader</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://www.canva.com/resumes/templates/')"><i>📄</i><span>AI রেজ্যুমে মেকার</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://www.ilovepdf.com/')"><i>📄</i><span>PDF কনভার্টার</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://perchance.org/ai-text-to-image-generator')"><i>🎨</i><span>AI 이미지</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://www.remove.bg/upload')"><i>🖼️</i><span>BG রিমুভার</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://tamerlan.xyz/games/')"><i>🎮</i><span>গেম জোন</span></div>
+        <div class="tool-card" onclick="tg.openLink('https://www.bbc.com/bengali')"><i>📰</i><span> DAILY NEWS</span></div>
+    </div>
+
+    <div class="earn-btn" onclick="showEarn()">
+        <i>💰</i>
+        <b>Earning Zone (ইনকাম করুন)</b>
+    </div>
+
+    <div class="section-title">🎬 লেটেস্ট মুভি ও নাটক</div>
+    <div class="movie-grid">
+        {% for item in contents %}
+        <div class="movie-card">
+            <img src="{{ item.image }}">
+            <div class="movie-info">
+                <div class="movie-title">{{ item.name }}</div>
+                <button class="btn-watch" onclick="unlockContent('{{ item.link }}')">Download</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="earnModal">
+        <div class="modal-content">
+            <h2 style="color:var(--gold);">পয়েন্ট জমান 💸</h2>
+            <div class="earn-item" onclick="earnAd()">
+                <span style="font-size:24px;">📅</span>
+                <div><b>Daily Reward</b><br><small>প্রতিদিন ৫০ পয়েন্ট বোনাস</small></div>
+            </div>
+            <div class="earn-item" onclick="earnAd()">
+                <span style="font-size:24px;">📺</span>
+                <div><b>Watch Ads & Earn</b><br><small>অ্যাড দেখে আনলিমিটেড ইনকাম</small></div>
+            </div>
+            <button onclick="hideEarn()" style="margin-top:30px; background:#3a3a3c; color:#fff; border:none; padding:12px 40px; border-radius:25px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const directLink = "https://omg10.com/4/10651831";
+
+        function showEarn() { document.getElementById('earnModal').style.display = 'block'; }
+        function hideEarn() { document.getElementById('earnModal').style.display = 'none'; }
+
+        function earnAd() {
+            tg.showConfirm("পয়েন্ট যোগ করতে একটি অ্যাড লোড হবে।", (ok) => {
+                if (ok) tg.openLink(directLink);
+            });
+        }
+
+        function unlockContent(targetLink) {
+            tg.showConfirm("এটি আনলক করতে ১০ সেকেন্ড অপেক্ষা করুন।", (ok) => {
+                if (ok) {
+                    if (typeof show_10706593 === 'function') {
+                        show_10706593().then(() => startTimer(targetLink)).catch(() => startTimer(targetLink));
+                    } else { startTimer(targetLink); }
+                }
+            });
+        }
+
+        function startTimer(link) {
+            let s = 10;
+            tg.MainButton.show();
+            tg.MainButton.disable();
+            
+            const timer = setInterval(() => {
+                tg.MainButton.setText(`Unlocking in ${s}s...`);
+                if (s <= 0) {
+                    clearInterval(timer);
+                    tg.MainButton.setText("✅ Click to Get File");
+                    tg.MainButton.enable();
+                    
+                    // টেলিগ্রাম মেইন বাটনে ক্লিক করলে ডিরেক্ট ফুল স্ক্রিন প্লেয়ারে ভিডিও অন করার লজিক
+                    tg.MainButton.onClick(() => {
+                        tg.openLink(link);
+                        tg.MainButton.hide();
+                    });
+                }
+                s--;
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
