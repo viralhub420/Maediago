@@ -4,6 +4,7 @@ import requests
 import telebot
 from telebot import types
 from pymongo import MongoClient
+import pymongo
 from flask import Flask, render_template, request, Response
 from threading import Thread
 from yt_dlp import YoutubeDL
@@ -15,10 +16,21 @@ POST_CHANNELS = ["@TheDubbedStationBD"]
 MONETAG_LINK = "https://omg10.com/4/10651831"
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"), parse_mode="HTML")
-client = MongoClient(os.getenv("MONGO_URI"))
-db = client["super_bot_db"]
-users_col = db["users"]
-content_col = db["contents"]
+
+# মঙ্গোডিবি কানেকশন এরর এবং DNS সমস্যা দূর করার জন্য বিশেষ সেটিংস
+try:
+    client = MongoClient(
+        os.getenv("MONGO_URI"),
+        tls=True,
+        tlsAllowInvalidCertificates=True,
+        connectTimeoutMS=30000,
+        socketTimeoutMS=None
+    )
+    db = client["super_bot_db"]
+    users_col = db["users"]
+    content_col = db["contents"]
+except Exception as e:
+    print(f"MongoDB Connection Error: {str(e)}")
 
 app = Flask(__name__)
 
@@ -37,7 +49,10 @@ def stream_telegram_file(file_id):
 
 @app.route('/')
 def home():
-    all_content = list(content_col.find().sort("_id", -1))
+    try:
+        all_content = list(content_col.find().sort("_id", -1))
+    except:
+        all_content = []
     return render_template('index.html', contents=all_content)
 
 def run():
@@ -89,7 +104,7 @@ def handle_video_file(message):
     if render_base_url.endswith('/'):
         render_base_url = render_base_url[:-1]
 
-    # আপনার বটের নিজস্ব ডোমেইনের ডিরেক্ট .mp4 ভিডিও লিঙ্ক
+    # ডিরেক্ট ফুল স্ক্রিন ব্রাউজার প্লেয়ার লিঙ্ক
     direct_video_url = f"{render_base_url}/stream/{file_id}"
 
     msg = (
@@ -111,7 +126,10 @@ def handle_downloader(message):
         bot.send_message(user_id, "⚠️ <b>টেলিগ্রাম লিঙ্ক পাওয়া গেছে!</b>\n\n১ জিবি পর্যন্ত বড় ভিডিও ডাউনলোড করতে আমাদের সুপার অ্যাপের <b>'Telegram Pro'</b> বাটনটি ব্যবহার করুন।", reply_markup=markup)
         return
 
-    users_col.update_one({"user_id": user_id}, {"$set": {"last_url": url, "time": int(time.time()), "clicked_ad": False}}, upsert=True)
+    try:
+        users_col.update_one({"user_id": user_id}, {"$set": {"last_url": url, "time": int(time.time()), "clicked_ad": False}}, upsert=True)
+    except: pass
+
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🎬 Watch Ad (1 Min)", callback_data="click_ad_logic"))
     markup.add(types.InlineKeyboardButton("🔓 Unlock Now", callback_data="unlock_video"))
@@ -119,7 +137,9 @@ def handle_downloader(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "click_ad_logic")
 def click_ad_logic(call):
-    users_col.update_one({"user_id": call.from_user.id}, {"$set": {"clicked_ad": True}})
+    try:
+        users_col.update_one({"user_id": call.from_user.id}, {"$set": {"clicked_ad": True}})
+    except: pass
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🚀 Go to Ad", url=MONETAG_LINK))
     markup.add(types.InlineKeyboardButton("🔓 Unlock Now", callback_data="unlock_video"))
@@ -127,7 +147,10 @@ def click_ad_logic(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "unlock_video")
 def unlock_video(call):
-    user = users_col.find_one({"user_id": call.from_user.id})
+    try:
+        user = users_col.find_one({"user_id": call.from_user.id})
+    except: user = None
+
     if not user or not user.get("clicked_ad"):
         bot.answer_callback_query(call.id, "❌ আগে অ্যাড দেখুন!", show_alert=True)
         return
@@ -148,8 +171,11 @@ def unlock_video(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "download_video")
 def download_video(call):
-    user = users_col.find_one({"user_id": call.from_user.id})
-    url = user["last_url"]
+    try:
+        user = users_col.find_one({"user_id": call.from_user.id})
+        url = user["last_url"]
+    except: return
+    
     status_msg = bot.send_message(call.message.chat.id, "⏳ ডাউনলোড হচ্ছে...")
     try:
         file_path = f"vid_{call.from_user.id}.mp4"
@@ -163,7 +189,9 @@ def download_video(call):
 def admin_cmd(message):
     if message.from_user.id != ADMIN_ID: return
     if message.text.startswith('/stats'):
-        total = users_col.count_documents({})
+        try:
+            total = users_col.count_documents({})
+        except: total = 0
         bot.reply_to(message, f"📊 Total Users: {total}")
 
 if __name__ == "__main__":
