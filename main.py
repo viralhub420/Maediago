@@ -46,6 +46,18 @@ def stream_telegram_file(file_id):
         return Response(req.iter_content(chunk_size=1024*1024), content_type='video/mp4')
     except Exception as e:
         return f"Error: {str(e)}", 500
+        
+# --- 🖼️ থাম্বনেইল স্ট্রিমিং এন্ডপয়েন্ট (বটের ডিরেক্ট ইমেজ লিংক) ---
+@app.route('/thumbnail/<file_id>')
+def stream_telegram_thumbnail(file_id):
+    try:
+        file_info = bot.get_file(file_id)
+        tg_file_url = f"https://api.telegram.org/file/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/{file_info.file_path}"
+        
+        req = requests.get(tg_file_url, stream=True)
+        return Response(req.iter_content(chunk_size=1024*1024), content_type='image/jpeg')
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 @app.route('/')
 def home():
@@ -85,7 +97,7 @@ def show_main_menu(chat_id):
     markup.row("🎬 Movies", "💰 Earning", "📊 Stats")
     bot.send_message(chat_id, "👋 MediaGo Hub-এ স্বাগতম!\nলিঙ্ক পাঠান অথবা অ্যাপ ওপেন করুন।", reply_markup=markup)
 
-# --- 🎬 ভিডিও ফাইল টু ডিরেক্ট লিংক জেনারেটর লজিক ---
+# --- 🎬 ভিডিও ফাইল টু ডিরেক্ট লিংক ও থাম্বনেইল জেনারেটর লজিক ---
 @bot.message_handler(content_types=['video'])
 def handle_video_file(message):
     user_id = message.chat.id
@@ -104,13 +116,23 @@ def handle_video_file(message):
     if render_base_url.endswith('/'):
         render_base_url = render_base_url[:-1]
 
-    # ডিরেক্ট ফুল স্ক্রিন ব্রাউজার প্লেয়ার লিঙ্ক
+    # ডিরেক্ট ভিডিও এবং থাম্বনেইল লিঙ্ক তৈরি
     direct_video_url = f"{render_base_url}/stream/{file_id}"
+    
+    # ভিডিওতে থাম্বনেইল আছে কি না চেক করা
+    direct_thumb_url = "❌ কোনো থাম্বনেইল পাওয়া যায়নি!"
+    if message.video.thumbnail:
+        thumb_file_id = message.video.thumbnail.file_id
+        direct_thumb_url = f"{render_base_url}/thumbnail/{thumb_file_id}"
+    elif message.video.thumb: 
+        thumb_file_id = message.video.thumb.file_id
+        direct_thumb_url = f"{render_base_url}/thumbnail/{thumb_file_id}"
 
     msg = (
-        "✅ <b>আপনার ডিরেক্ট ভিডিও লিঙ্ক প্রস্তুত!</b>\n\n"
-        f"🔗 <code>{direct_video_url}</code>\n\n"
-        "<i>নিচের লিঙ্কটি সরাসরি কপি করে আপনার মেইন অ্যাপের পোস্ট বটে সাবমিট করতে পারেন।</i>"
+        "✅ <b>আপনার লিঙ্কসমূহ প্রস্তুত!</b>\n\n"
+        f"🎬 <b>ভিডিও লিঙ্ক:</b>\n<code>{direct_video_url}</code>\n\n"
+        f"🖼️ <b>থাম্বনেইল লিঙ্ক:</b>\n<code>{direct_thumb_url}</code>\n\n"
+        "<i>লিঙ্কগুলো কপি করে আপনার মেইন অ্যাপের ডাটাবেজে বা পোস্টে ব্যবহার করতে পারেন।</i>"
     )
     bot.reply_to(message, msg)
 
